@@ -1823,7 +1823,7 @@ function buildCostosCharts(){
   if(_costosBarChart){ _costosBarChart.destroy(); _costosBarChart=null; }
 
   var barColors = meses.map(function(m){
-    if(selectedMes === 'TODOS') return 'rgba(31,91,166,.25)';
+    if(selectedMes === 'TODOS') return '#1F5BA6';
     return m === selectedMes ? '#1F5BA6' : 'rgba(31,91,166,.18)';
   });
 
