@@ -1619,10 +1619,10 @@ function buildCostosKPIs(){
 }
 
 function showTab(t){
-  document.getElementById('view-resumen').style.display = t==='resumen' ? '' : 'none';
-  document.getElementById('view-horas').style.display = t==='horas' ? '' : 'none';
-  document.getElementById('view-costos').style.display = t==='costos' ? '' : 'none';
-  document.getElementById('view-flujo').style.display = t==='flujo' ? '' : 'none';
+  document.getElementById('view-resumen').style.display = t==='resumen' ? 'block' : 'none';
+  document.getElementById('view-horas').style.display = t==='horas' ? 'block' : 'none';
+  document.getElementById('view-costos').style.display = t==='costos' ? 'block' : 'none';
+  document.getElementById('view-flujo').style.display = t==='flujo' ? 'block' : 'none';
   if(t==='flujo') fRenderAll();
   if(t==='resumen') rsRender();
   document.getElementById('tab-resumen').classList.toggle('active', t==='resumen');
