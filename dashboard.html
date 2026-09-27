@@ -1619,16 +1619,16 @@ function buildCostosKPIs(){
 }
 
 function showTab(t){
-  document.getElementById('view-resumen').style.display = t==='resumen' ? 'block' : 'none';
-  document.getElementById('view-horas').style.display = t==='horas' ? 'block' : 'none';
-  document.getElementById('view-costos').style.display = t==='costos' ? 'block' : 'none';
-  document.getElementById('view-flujo').style.display = t==='flujo' ? 'block' : 'none';
+  document.getElementById('view-resumen').style.display = t==='resumen' ? '' : 'none';
+  document.getElementById('view-horas').style.display = t==='horas' ? '' : 'none';
+  document.getElementById('view-costos').style.display = t==='costos' ? '' : 'none';
+  document.getElementById('view-flujo').style.display = t==='flujo' ? '' : 'none';
   if(t==='flujo') fRenderAll();
   if(t==='resumen') rsRender();
   document.getElementById('tab-resumen').classList.toggle('active', t==='resumen');
   document.getElementById('tab-horas').classList.toggle('active', t==='horas');
   document.getElementById('tab-costos').classList.toggle('active', t==='costos');
-  if(t==='costos') showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
+  if(t==='costos'){ showPasivoMes('jul-26', document.getElementById('pbtn-jul')); buildCostosCharts(); }
 }
 
 // PASIVOS DATA
@@ -1709,6 +1709,138 @@ function cFilterMes(m){
   const inp = document.getElementById('cSearchInput');
   if(inp && inp.value){ inp.value=''; searchCostosTable(''); }
   buildCostosTable();
+  buildCostosCharts();
+}
+
+// ---- GRAFICAS COSTOS ----
+var _costosTendChart = null;
+var _costosBarChart = null;
+
+function buildCostosCharts(){
+  var allMonths = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT'];
+  var meses = allMonths.filter(function(m){ return COSTOS[m] && ((COSTOS[m].usd_total||0)+(COSTOS[m].mxn_total||0)) > 0; });
+  var selectedMes = (typeof cCurrentMes!=='undefined') ? cCurrentMes : 'TODOS';
+
+  var monthlyCosts = meses.map(function(m){
+    return (COSTOS[m].usd_total||0) + (COSTOS[m].mxn_total||0)/17;
+  });
+
+  var acum = 0;
+  var acumCosts = monthlyCosts.map(function(v){ acum += v; return Math.round(acum); });
+  var monthlyRound = monthlyCosts.map(function(v){ return Math.round(v); });
+
+  var labels = meses.map(function(m){
+    return (m==='NOV'||m==='DIC') ? m+' 25' : m;
+  });
+
+  var ctx1 = document.getElementById('costos-tendencia-chart');
+  if(!ctx1) return;
+  if(_costosTendChart){ _costosTendChart.destroy(); _costosTendChart=null; }
+  _costosTendChart = new Chart(ctx1, {
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          type: 'line',
+          label: 'Acumulado',
+          data: acumCosts,
+          borderColor: '#1F5BA6',
+          backgroundColor: 'rgba(31,91,166,.08)',
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#1F5BA6',
+          fill: true,
+          yAxisID: 'y1',
+          tension: 0.3
+        },
+        {
+          type: 'line',
+          label: 'Mensual',
+          data: monthlyRound,
+          borderColor: '#F59E0B',
+          borderWidth: 2,
+          borderDash: [6,4],
+          pointRadius: 4,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#F59E0B',
+          fill: false,
+          yAxisID: 'y2',
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 14 } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx2){ return ctx2.dataset.label+': $'+ctx2.parsed.y.toLocaleString('en-US'); }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#EEF2F7' }, ticks: { color: '#6B7A99', font: { size: 10 } } },
+        y1: {
+          position: 'left',
+          grid: { color: '#EEF2F7' },
+          ticks: { color: '#6B7A99', font: { size: 10 },
+            callback: function(v){ return '$'+(v>=1000?(v/1000).toFixed(0)+'K':v); }
+          }
+        },
+        y2: {
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: '#F59E0B', font: { size: 10 },
+            callback: function(v){ return '$'+(v>=1000?(v/1000).toFixed(0)+'K':v); }
+          }
+        }
+      }
+    }
+  });
+
+  var ctx2 = document.getElementById('costos-barras-chart');
+  if(!ctx2) return;
+  if(_costosBarChart){ _costosBarChart.destroy(); _costosBarChart=null; }
+
+  var barColors = meses.map(function(m){
+    if(selectedMes === 'TODOS') return 'rgba(31,91,166,.25)';
+    return m === selectedMes ? '#1F5BA6' : 'rgba(31,91,166,.18)';
+  });
+
+  _costosBarChart = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Costo Total USD',
+        data: monthlyRound,
+        backgroundColor: barColors,
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx2){ return '$'+ctx2.parsed.y.toLocaleString('en-US'); }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#EEF2F7' }, ticks: { color: '#6B7A99', font: { size: 10 } } },
+        y: { grid: { color: '#EEF2F7' }, ticks: { color: '#6B7A99', font: { size: 10 },
+            callback: function(v){ return '$'+(v>=1000?(v/1000).toFixed(0)+'K':v); }
+          }
+        }
+      }
+    }
+  });
 }
 
 function setCostosView(v){
@@ -1987,14 +2119,6 @@ function exportHorasDesglose(subId, mes, cust){
   XLSX.utils.book_append_sheet(wb, ws, 'Desglose');
   XLSX.writeFile(wb, `Horas_${cust}_${mes}.xlsx`);
 }
-
-// ─── AUTO-GENERADO POR regenerar_dashboard_v2.py ─────────────────
-// Generado: 2026-09-25 23:36:58
-var FCLIENTES = {"TOTAL COSTOS": {"mx": 72270829.0}, "COSTOS": {"mx": 56726611.0}, "TOTAL GASTOS": {"mx": 27866854.0}, "ATS AUTOMATION GLOBAL": {"mx": 18155364.0}, "AMEX": {"mx": 17187657.0}, "SW NORTH AMERICA": {"mx": 14262466.0}, "GENERAL MOTORS MX": {"mx": 9346062.0}, "IMPUESTOS": {"mx": 9096924.0}, "MAGNIT CORPORATION": {"mx": 7281039.0}, "GENERAL MOTORS": {"mx": 5265592.0}, "ATS OHIO": {"mx": 4206450.0}, "COMAU LLC": {"mx": 3847715.0}, "SEGUROS": {"mx": 3464297.0}, "PARI": {"mx": 3127654.0}, "EST FI": {"mx": 2220000.0}, "COSTOS FIJOS": {"mx": 2170170.0}, "GENERAL PHYSICS CORPORATION": {"mx": 1883356.0}, "ATS CORPORATION": {"mx": 1449389.0}, "COMAU AUTOMATIZACION": {"mx": 1362213.0}, "HALSTON AUTOMATION": {"mx": 931589.0}, "INTEGRION AUTOMATION INC": {"mx": 746375.0}, "PRESTAMO": {"mx": 650592.0}, "ERDMAN AUTOMATION": {"mx": 604985.0}, "INNOVATIVE AUTOMATION INC": {"mx": 553952.0}, "DIGITEK CORPORATION": {"mx": 219787.0}, "FORD MOTOR COMPANY": {"mx": 124613.0}, "GASTOS": {"mx": 114793.0}, "VENTA ACTIVO FIJO": {"mx": 98600.0}, "MOVEATECH LIMITED": {"mx": 63736.0}, "SERVICIOS INGENIERIA Y MAQUINADOS AGUILAR": {"mx": 63644.0}};
-var FCLIENTES_MES = {"ENE": {"ATS AUTOMATION GLOBAL": 4829819.0, "ATS CORPORATION": 90341.0, "COMAU LLC": 3217891.0, "FORD MOTOR COMPANY": 124613.0, "GENERAL MOTORS": 3056004.0, "GENERAL MOTORS MX": 1114858.0, "PARI": 200712.0, "SW NORTH AMERICA": 2689015.0}, "FEB": {"ATS AUTOMATION GLOBAL": 4653838.0, "ATS CORPORATION": 76518.0, "COMAU AUTOMATIZACION": 934941.0, "COMAU LLC": 542203.0, "GENERAL MOTORS": 1995688.0, "GENERAL MOTORS MX": 598874.0, "GENERAL PHYSICS CORPORATION": 571571.0, "INTEGRION AUTOMATION INC": 37957.0, "MAGNIT CORPORATION": 5443168.0, "PARI": 80055.0, "SERVICIOS INGENIERIA Y MAQUINADOS AGUILAR": 63644.0, "SW NORTH AMERICA": 583633.0, "VENTA ACTIVO FIJO": 98600.0, "COSTOS": 9019295.0, "TOTAL COSTOS": 10594002.0, "GASTOS": 17721.0, "TOTAL GASTOS": 3981556.0, "SEGUROS": 53280.0, "IMPUESTOS": 2891754.0, "AMEX": 4899056.0, "COSTOS FIJOS": 370183.0, "PRESTAMO": 47592.0}, "MAR": {"ATS AUTOMATION GLOBAL": 6361291.0, "ATS CORPORATION": 49163.0, "GENERAL MOTORS": 213900.0, "GENERAL MOTORS MX": 572563.0, "INTEGRION AUTOMATION INC": 441934.0, "MAGNIT CORPORATION": 542047.0, "PARI": 130112.0, "SW NORTH AMERICA": 2047029.0, "COSTOS": 6632897.0, "TOTAL COSTOS": 7706178.0, "GASTOS": 16703.0, "TOTAL GASTOS": 3894736.0, "SEGUROS": 53280.0, "IMPUESTOS": 1276656.0, "AMEX": 1145598.0, "COSTOS FIJOS": 385264.0, "EST FI": 2220000.0}, "ABR": {"ATS AUTOMATION GLOBAL": 1202561.0, "ATS OHIO": 83547.0, "COMAU AUTOMATIZACION": 16338.0, "COMAU LLC": 87620.0, "ERDMAN AUTOMATION": 416398.0, "GENERAL MOTORS MX": 1732151.0, "INTEGRION AUTOMATION INC": 202395.0, "MAGNIT CORPORATION": 131821.0, "PARI": 792381.0, "SW NORTH AMERICA": 1818386.0, "COSTOS": 7725456.0, "TOTAL COSTOS": 9700117.0, "GASTOS": 15607.0, "TOTAL GASTOS": 4745644.0, "SEGUROS": 2421324.0, "IMPUESTOS": 1682170.0, "AMEX": 1153517.0, "COSTOS FIJOS": 372049.0, "PRESTAMO": 500000.0}, "MAY": {"ATS AUTOMATION GLOBAL": 279914.0, "COMAU AUTOMATIZACION": 215563.0, "ERDMAN AUTOMATION": 188587.0, "GENERAL MOTORS MX": 1284088.0, "GENERAL PHYSICS CORPORATION": 815988.0, "HALSTON AUTOMATION": 45224.0, "MAGNIT CORPORATION": 674641.0, "PARI": 133625.0, "SW NORTH AMERICA": 2278304.0, "COSTOS": 6901484.0, "TOTAL COSTOS": 9123549.0, "GASTOS": 16708.0, "TOTAL GASTOS": 2755162.0, "SEGUROS": 53280.0, "IMPUESTOS": 2101874.0, "AMEX": 3179794.0, "PRESTAMO": 13000.0}, "JUN": {"ATS AUTOMATION GLOBAL": 827941.0, "ATS CORPORATION": 186320.0, "ATS OHIO": 1587966.0, "COMAU AUTOMATIZACION": 18485.0, "GENERAL MOTORS MX": 1409437.0, "HALSTON AUTOMATION": 327788.0, "INNOVATIVE AUTOMATION INC": 84216.0, "INTEGRION AUTOMATION INC": 64089.0, "MAGNIT CORPORATION": 311461.0, "PARI": 1113448.0, "SW NORTH AMERICA": 1470950.0, "COSTOS": 8250316.0, "TOTAL COSTOS": 10510257.0, "GASTOS": 13081.0, "TOTAL GASTOS": 5004533.0, "SEGUROS": 398574.0, "IMPUESTOS": 301882.0, "AMEX": 2023798.0, "COSTOS FIJOS": 351049.0, "PRESTAMO": 4000.0}, "JUL": {"ATS CORPORATION": 100662.0, "ATS OHIO": 1418084.0, "COMAU AUTOMATIZACION": 176887.0, "DIGITEK CORPORATION": 219787.0, "GENERAL MOTORS MX": 1062387.0, "GENERAL PHYSICS CORPORATION": 495796.0, "HALSTON AUTOMATION": 558577.0, "INNOVATIVE AUTOMATION INC": 379935.0, "MOVEATECH LIMITED": 63736.0, "PARI": 482271.0, "SW NORTH AMERICA": 1789313.0, "COSTOS": 8511652.0, "TOTAL COSTOS": 10599558.0, "GASTOS": 15546.0, "TOTAL GASTOS": 3598586.0, "SEGUROS": 151130.0, "IMPUESTOS": 544870.0, "AMEX": 2506519.0, "COSTOS FIJOS": 345812.0, "PRESTAMO": 80000.0}, "AGO": {"ATS CORPORATION": 946385.0, "ATS OHIO": 1116854.0, "GENERAL MOTORS MX": 1571704.0, "INNOVATIVE AUTOMATION INC": 89801.0, "MAGNIT CORPORATION": 177901.0, "PARI": 195049.0, "SW NORTH AMERICA": 1585836.0, "COSTOS": 9685512.0, "TOTAL COSTOS": 14037168.0, "GASTOS": 19428.0, "TOTAL GASTOS": 3886636.0, "SEGUROS": 333428.0, "IMPUESTOS": 297718.0, "AMEX": 2279373.0, "COSTOS FIJOS": 345812.0, "PRESTAMO": 6000.0}};
-var FHORAS_MES = {"ENE": 5385.75, "FEB": 5098.93, "MAR": 7204.13, "ABR": 6827.89, "MAY": 9653.42, "JUN": 7084.72, "JUL": 7720.85, "AGO": 12925.85};
-var FRECURSOS_MES = {"ENE": 55, "FEB": 32, "MAR": 39, "ABR": 45, "MAY": 51, "JUN": 44, "JUL": 56, "AGO": 67};
-// ─── FIN DATOS AUTO-GENERADOS ──────────────────────────────────────────────
 
 // ─── FLUJO DE CAJA ────────────────────────────────────────────────────────
 var FMONTHS = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO'];
@@ -2614,7 +2738,7 @@ function rsRender(){
     {label:'Egresos YTD',         val:fmt(egrTotal),                             sub:'Prom. mensual: '+fmt(egrTotal/months.length),         accent:'#DC2626', trend:''},
     {label:'Liquidez Mensual',     val:fmt(utilidad),                             sub:'% Liquidez Mensual: '+margen+'%',         accent: utilidad>=0?'#059669':'#DC2626', trend: utilidad>=0?'▲':'▼'},
     {label:'Saldo Bancos '+(rsMes==='TODOS'?'AGO':rsMes), val:fmt(saldoFinal), sub:'Liquidez disponible', accent:'#1F5BA6', trend:''},
-    (function(){ const costoOpTotal = months.reduce(function(a,m){ return a + (FDATA[m]?(FDATA[m].horas_mx||0)+(FDATA[m].viat_mx||0)+(FDATA[m].nom_mx||0)+(FDATA[m].imp_mx||0):0); }, 0); const pct = egrTotal>0?(costoOpTotal/egrTotal*100).toFixed(1)+'% de egresos totales':''; return {label:'Costo Operativo', val:fmt(costoOpTotal), sub:'Horas + Viát + Nóm + Imp<br><span style="color:#7C3AED;font-weight:700">'+pct+'</span>', accent:'#7C3AED', trend:''}; })(),
+    {label:'Horas Facturadas YTD',val:horasTotal.toLocaleString('es-MX')+' hrs', sub:'ST: '+stTotal.toLocaleString('es-MX')+' · OT: '+otTotal.toLocaleString('es-MX'),accent:'#7C3AED', trend:''},
   ];
   document.getElementById('rs-kpis').innerHTML = kpis.map(function(k){
     return '<div class="rs-kpi" style="--rsaccent:'+k.accent+'">' +
