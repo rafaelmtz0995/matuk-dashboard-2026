@@ -278,7 +278,7 @@ footer strong{color:#fff}
   <div class="hero-left">
     <div class="hero-tag"><span>——</span> 04 / RESUMEN EJECUTIVO</div>
     <h1 class="hero-title">Resumen<br/><em>Ejecutivo 2026</em></h1>
-    <p class="hero-sub" id="rs-hero-sub">Consolidado ENE–SEP · Horas · Costos · Flujo de Caja</p>
+    <p class="hero-sub" id="rs-hero-sub">Consolidado ENE–DIC · Horas · Costos · Flujo de Caja</p>
     <div class="hero-stats" id="rs-hero-stats"></div>
     <!-- RS MONTH FILTER -->
     <div style="display:flex;align-items:center;gap:8px;margin-top:20px;flex-wrap:wrap">
@@ -674,7 +674,7 @@ footer strong{color:#fff}
           </tr>
         </thead>
         <tbody>
-                                                  <tr style="background:#fff;border-bottom:1px solid #F3F4F6">
+                                                            <tr style="background:#fff;border-bottom:1px solid #F3F4F6">
             <td style="padding:10px 14px;font-weight:600;color:var(--navy)">jul-26</td>
             <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">17.3562</td>
             <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">17</td>
@@ -889,7 +889,7 @@ footer strong{color:#fff}
   </div>
   <div class="fcard">
     <div class="fcard-title">Evolución Saldo Bancos</div>
-    <div class="fcard-sub">Saldo final ENE–SEP + distribución por banco</div>
+    <div class="fcard-sub">Saldo final ENE–DIC + distribución por banco</div>
     <svg class="fline" id="f-line" viewBox="0 0 400 110"></svg>
     <div class="fsaldo-ctx">
       <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA USD</div><div class="fsaldo-bval" id="fb-bbvausd"></div></div>
@@ -2236,13 +2236,13 @@ function fRenderKPIs(){
   const prevEgr  = prev ? fGet(FDATA[prev],'egr') : null;
   const prevSaldo= prev ? fGet(FDATA[prev],'saldo') : null;
 
-  const lbl = isSingle ? fMes : 'YTD ENE–SEP';
+  const lbl = isSingle ? fMes : 'YTD ENE–DIC';
   document.getElementById('fk-saldo-lbl').textContent = 'Saldo Final ' + months[months.length-1];
   document.getElementById('fk-ing-lbl').textContent   = 'Ingresos ' + (isSingle?fMes:'YTD');
   document.getElementById('fk-egr-lbl').textContent   = 'Egresos ' + (isSingle?fMes:'YTD');
-  document.getElementById('fk-saldo-sub').textContent = isSingle ? 'Saldo acumulado al cierre de '+fMes : 'Saldo final septiembre 2026';
-  document.getElementById('fk-ing-sub').textContent   = isSingle ? 'Cobros ingresados en '+fMes : 'Cobros acumulados ENE–SEP';
-  document.getElementById('fk-egr-sub').textContent   = isSingle ? 'Pagos realizados en '+fMes : 'Pagos acumulados ENE–SEP';
+  document.getElementById('fk-saldo-sub').textContent = isSingle ? 'Saldo acumulado al cierre de '+fMes : 'Saldo final diciembre 2026';
+  document.getElementById('fk-ing-sub').textContent   = isSingle ? 'Cobros ingresados en '+fMes : 'Cobros acumulados ENE–DIC';
+  document.getElementById('fk-egr-sub').textContent   = isSingle ? 'Pagos realizados en '+fMes : 'Pagos acumulados ENE–DIC';
   document.getElementById('fk-margen-sub').textContent= margen>=0 ? 'Ingresos > Egresos ✓' : 'Egresos > Ingresos ⚠';
 
   document.getElementById('f-saldo').textContent = fFmt(saldo);
@@ -2508,7 +2508,7 @@ function fRenderEgrBars(){
   }).join('');
 
   const ctx2 = document.getElementById('f-egr-ctx');
-  if(ctx2) ctx2.textContent = fMes==='TODOS' ? 'Distribución acumulada ENE-SEP' : 'Distribución de pagos en '+fMes;
+  if(ctx2) ctx2.textContent = fMes==='TODOS' ? 'Distribución acumulada ENE–DIC' : 'Distribución de pagos en '+fMes;
 }
 
 function fRenderBarCostos(){
@@ -2719,7 +2719,7 @@ function rsRender(){
   var kpiTitle = document.getElementById('rs-kpi-title');
   if(kpiTitle) kpiTitle.textContent = rsMes==='TODOS' ? 'Indicadores Clave — ENE a AGO 2026' : 'Indicadores Clave — '+rsMes+' 2026';
   var heroSub = document.getElementById('rs-hero-sub');
-  if(heroSub) heroSub.textContent = rsMes==='TODOS' ? 'Consolidado ENE–SEP · Horas · Costos · Flujo de Caja' : 'Mes: '+rsMes+' · Horas · Costos · Flujo de Caja';
+  if(heroSub) heroSub.textContent = rsMes==='TODOS' ? 'Consolidado ENE–DIC · Horas · Costos · Flujo de Caja' : 'Mes: '+rsMes+' · Horas · Costos · Flujo de Caja';
   var heroStats = document.getElementById('rs-hero-stats');
   if(heroStats){
     heroStats.innerHTML =
