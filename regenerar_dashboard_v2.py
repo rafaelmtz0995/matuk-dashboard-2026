@@ -352,11 +352,12 @@ def extraer_costos(tc_mes):
         # col1=fecha, col2=horas_usd, col3=costo_hrs_usd, col4=perdiem_usd, col5=total_usd
         # col6=horas_mxn, col7=costo_mxn, col8=total_mxn
         costos[m] = {
-            'usd_hrs':   sf(row[3]),   # Costo Hrs USD
-            'usd_total': sf(row[5]),   # Total USD
-            'mxn_hrs':   sf(row[7]),   # Costo Hrs MXN
-            'mxn_total': sf(row[8]),   # Total MXN
-            'by_cust':   [],
+            'usd_hrs':    sf(row[3]),   # Costo Hrs USD
+            'perdiem_usd':sf(row[4]),   # Perdiem USD  ← NUEVO
+            'usd_total':  sf(row[5]),   # Total USD
+            'mxn_hrs':    sf(row[7]),   # Costo Hrs MXN
+            'mxn_total':  sf(row[8]),   # Total MXN
+            'by_cust':    [],
         }
 
     # 2. by_cust desde hoja 2026 — col28=Costo Hrs TOTAL USD, col30=Costo TOTAL USD
@@ -483,12 +484,13 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
         if m in costos:
             d = costos[m]
             costos_r[m] = {
-                'usd_hrs':   round(d['usd_hrs'],2),
-                'usd_total': round(d['usd_total'],2),
-                'mxn_hrs':   round(d['mxn_hrs'],2),
-                'mxn_total': round(d['mxn_total'],2),
-                'by_cust':   d['by_cust'],
-                'tc':        d.get('tc',0),
+                'usd_hrs':    round(d['usd_hrs'],2),
+                'perdiem_usd':round(d.get('perdiem_usd',0),2),
+                'usd_total':  round(d['usd_total'],2),
+                'mxn_hrs':    round(d['mxn_hrs'],2),
+                'mxn_total':  round(d['mxn_total'],2),
+                'by_cust':    d['by_cust'],
+                'tc':         d.get('tc',0),
             }
     html = _replace_var(html, 'COSTOS', json.dumps(costos_r, ensure_ascii=False))
 
@@ -537,7 +539,7 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
 
 
 # ── FIXES POST-REGENERACION ───────────────────────────────────────────────────
-def aplicar_fixes(html):
+def aplicar_fixes(html, ultimo_mes_real=None):
     """Re-aplica todos los fixes manuales que el regenerador sobreescribe."""
     fixes_ok = []
     fixes_fail = []
@@ -685,23 +687,37 @@ function buildCostosCharts(){
                   'JUN':'junio','JUL':'julio','AGO':'agosto','SEP':'septiembre',
                   'OCT':'octubre','NOV':'noviembre','DIC':'diciembre'}
     import re as _re2
-    fdata_m = _re2.search(r'var FDATA=\{([^}]+)', html)
-    ultimo_mes_flujo = 'AGO'
-    if fdata_m:
-        meses_en_fdata = _re2.findall(r'"([A-Z]{3})":\s*\{', html[fdata_m.start():fdata_m.start()+8000])
-        for m in reversed(MESES_ORD):
-            if m in meses_en_fdata:
-                ultimo_mes_flujo = m
-                break
+    import json as _json
+    MESES_ORD_LOCAL = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
+    # Usar mes real pasado como parámetro, si existe
+    if ultimo_mes_real and ultimo_mes_real in MESES_ORD_LOCAL:
+        ultimo_mes_flujo = ultimo_mes_real
+    else:
+        # Buscar último mes con datos reales (ing_mx > 0) en FDATA
+        fdata_m = _re2.search(r'var FDATA=({[\s\S]*?});\s*\n', html)
+        ultimo_mes_flujo = 'AGO'
+        if fdata_m:
+            try:
+                fdata_obj = _json.loads(fdata_m.group(1))
+                for m in reversed(MESES_ORD_LOCAL):
+                    if m in fdata_obj and (fdata_obj[m].get('ing_mx',0) or 0) > 0:
+                        ultimo_mes_flujo = m
+                        break
+            except Exception:
+                meses_en_fdata = _re2.findall(r'"([A-Z]{3})":\s*\{', html[fdata_m.start():fdata_m.start()+8000])
+                for m in reversed(MESES_ORD_LOCAL):
+                    if m in meses_en_fdata:
+                        ultimo_mes_flujo = m
+                        break
 
     # Agregar botón del último mes si no existe
-    btn_id_ultimo = f'data-m="{ultimo_mes_flujo}"'
+    btn_id_ultimo = 'data-m="' + ultimo_mes_flujo + '"'
     if btn_id_ultimo not in html:
-        old_ago_btn = f'<button class="fmes-btn" data-m="AGO" onclick="fSetMes('AGO',this)">AGO</button>'
-        new_buttons = old_ago_btn + f'\n    <button class="fmes-btn" data-m="{ultimo_mes_flujo}" onclick="fSetMes(\'{ultimo_mes_flujo}\',this)">{ultimo_mes_flujo}</button>'
+        old_ago_btn = "<button class=\"fmes-btn\" data-m=\"AGO\" onclick=\"fSetMes('AGO',this)\">AGO</button>"
+        new_buttons = old_ago_btn + '\n    <button class="fmes-btn" data-m="' + ultimo_mes_flujo + '" onclick="fSetMes(\'' + ultimo_mes_flujo + '\',this)">' + ultimo_mes_flujo + '</button>'
         if old_ago_btn in html:
             html = html.replace(old_ago_btn, new_buttons, 1)
-            fixes_ok.append(f"Botón {ultimo_mes_flujo} flujo")
+            fixes_ok.append("Boton " + ultimo_mes_flujo + " flujo")
 
     # Actualizar textos ENE–??? al rango correcto
     for old_rng in ['ENE–ENE','ENE–FEB','ENE–MAR','ENE–ABR','ENE–MAY','ENE–JUN',
@@ -741,6 +757,25 @@ function buildCostosCharts(){
         html = html.replace(OLD6b, NEW6b, 1); fixes_ok.append("cFilterMes→buildCostosKPIs")
     elif 'buildCostosKPIs' in html[html.find('function cFilterMes'):html.find('function cFilterMes')+300]:
         fixes_ok.append("cFilterMes→buildCostosKPIs (ya OK)")
+
+    # FIX: Título "Indicadores Clave — ENE a MES 2026" dinámico
+    for old_mes in ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']:
+        if old_mes == ultimo_mes_flujo:
+            continue
+        old_t = 'Indicadores Clave — ENE a ' + old_mes + ' 2026'
+        new_t = 'Indicadores Clave — ENE a ' + ultimo_mes_flujo + ' 2026'
+        if old_t in html:
+            html = html.replace(old_t, new_t)
+            fixes_ok.append('KPI title ' + old_mes + '->' + ultimo_mes_flujo)
+
+    # Fix perdiem_usd: usar valor real del resumen en lugar de calcular por diferencia
+    old_viat = "    const viaticos = d.usd_total - d.usd_hrs - otrosCostos;"
+    new_viat = "    const viaticos = (d.perdiem_usd != null && d.perdiem_usd > 0) ? d.perdiem_usd : (d.usd_total - d.usd_hrs - otrosCostos);"
+    if old_viat in html:
+        html = html.replace(old_viat, new_viat)
+        fixes_ok.append('perdiem_usd formula')
+    elif new_viat in html:
+        fixes_ok.append('perdiem_usd formula(ya)')
 
     print("  FIXES OK:", ", ".join(fixes_ok))
     if fixes_fail:
@@ -981,7 +1016,14 @@ def main():
     # Aplicar todos los fixes manuales post-regeneracion
     print("  Aplicando fixes post-regeneracion...")
     with open(OUTPUT_HTML, 'r', encoding='utf-8') as f: html_fix = f.read()
-    html_fix = aplicar_fixes(html_fix)
+    # Determinar último mes real con datos (antes de agregar meses futuros vacíos)
+    ORDEN_M = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
+    ultimo_real = 'AGO'
+    for _m in reversed(ORDEN_M):
+        if _m in fdata and (fdata[_m].get('ing_mx',0) or 0) > 0:
+            ultimo_real = _m
+            break
+    html_fix = aplicar_fixes(html_fix, ultimo_mes_real=ultimo_real)
     with open(OUTPUT_HTML, 'w', encoding='utf-8') as f: f.write(html_fix)
 
     print()
