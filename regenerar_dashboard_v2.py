@@ -87,28 +87,56 @@ def extraer_ingresos():
 
 # ── USD + TC ──────────────────────────────────────────────────────────────────
 def extraer_usd_tc():
-    print("  USD y TC (Res flujo enero-julio)...")
+    print("  USD y TC (FLUJO detalle)...")
     wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
-    ws = wb['Res flujo enero-julio']
+    ws = wb['FLUJO detalle']
     rows = list(ws.iter_rows(values_only=True))
-    header = rows[3]
-    col_map = {}
-    for j,h in enumerate(header):
-        if isinstance(h,str):
-            k = h.strip().upper()
-            if k in MES_LARGO and MES_LARGO[k] not in col_map:
-                col_map[MES_LARGO[k]] = j
+
+    # Buscar fila de encabezados de mes (ENERO, FEBRERO, etc.)
+    header_row_idx = None
+    for i, row in enumerate(rows[:10]):
+        for cell in row:
+            if isinstance(cell, str) and cell.strip().upper() in MES_LARGO:
+                header_row_idx = i
+                break
+        if header_row_idx is not None:
+            break
+
+    mes_col_dls = {}  # mes -> columna DLS
+    if header_row_idx is not None:
+        header_row = rows[header_row_idx]
+        for j, cell in enumerate(header_row):
+            if isinstance(cell, str):
+                k = cell.strip().upper().rstrip()
+                if k in MES_LARGO:
+                    m = MES_LARGO[k]
+                    if m not in mes_col_dls:
+                        mes_col_dls[m] = j - 1  # columna DLS está antes del nombre
+
     ing_usd = {m:0.0 for m in MESES}
     tc_mes  = {m:0.0 for m in MESES}
+
+    # Leer TC desde fila anterior al encabezado
+    if header_row_idx is not None and header_row_idx > 0:
+        tc_row = rows[header_row_idx - 1]
+        for m, col in mes_col_dls.items():
+            for try_col in [col+1, col, col+2]:
+                v = sf(tc_row[try_col]) if try_col < len(tc_row) else 0.0
+                if 10 < v < 25:
+                    tc_mes[m] = v
+                    break
+
+    # Leer INGRESOS USD de fila TOTAL INGRESOS, columna DLS
     for row in rows:
         etiq = str(row[0]).strip().upper() if row[0] else ""
-        if etiq == 'INGRESOS USD':
-            for m,col in col_map.items():
-                if col < len(row): ing_usd[m] = sf(row[col])
-        elif etiq == 'TC CIERRE DE MES':
-            for m,col in col_map.items():
-                if col < len(row): tc_mes[m]  = sf(row[col])
+        if etiq in ('TOTAL INGRESOS', 'INGRESOS'):
+            for m, col in mes_col_dls.items():
+                if col < len(row):
+                    ing_usd[m] = sf(row[col])
+            break
+
     wb.close()
+    print(f"    TC SEP={tc_mes.get('SEP',0)}  ING_USD SEP={ing_usd.get('SEP',0):,.0f}")
     return ing_usd, tc_mes
 
 # ── FDATA desde FLUJO detalle ─────────────────────────────────────────────────
@@ -167,6 +195,90 @@ def extraer_fdata():
 
     print(f"    ENE ing_mx={fdata['ENE']['ing_mx']:,.0f}  ing_dls={fdata['ENE']['ing_dls']:,.0f}")
     return fdata
+
+# ── PASIVO desde hoja HISTORIAL PASIVOS ──────────────────────────────────────
+def extraer_pasivo():
+    print("  Pasivo (hoja HISTORIAL PASIVOS)...")
+    wb = openpyxl.load_workbook(PAGOS_FILE, read_only=True, data_only=True)
+    ws = wb['HISTORIAL PASIVOS']
+    rows = list(ws.iter_rows(values_only=True))
+
+    # NOTA: datos en columna B (índice 1), no columna A (índice 0) — col A siempre vacía
+    # Fila 3:  col1='CIERRE VIVO '
+    # Fila 5:  datos cierre vivo (col1=mes, col2=tc, col3=personas, col4=horas, col5=total_usd, col6=base_mxn, ...)
+    # Fila 7:  'CIERRES HISTÓRICOS'
+    # Fila 9+: datos históricos  (col1=mes, col2=tc, col3=personas, col4=horas, col5=total_usd, col6=total_mxn, col7=neto_mxn, col8=neto_usd)
+    # Fila 15: 'DETALLE HISTÓRICO POR CLIENTE'
+    # Fila 17+: detalle (col1=mes, col2=cliente, col3=personas, col4=horas, col5=total_usd, col6=total_mxn, col7=neto_mxn, col8=neto_usd)
+
+    MES_STR = {
+        'ene-26':'ENE','feb-26':'FEB','mar-26':'MAR','abr-26':'ABR',
+        'may-26':'MAY','jun-26':'JUN','jul-26':'JUL','ago-26':'AGO','sep-26':'SEP',
+    }
+
+    cierres = {}
+    vivo = None
+    detalle = {}
+    mode = None  # 'vivo', 'historico', 'detalle'
+
+    for row in rows:
+        if not row or len(row) < 2: continue
+        col1 = str(row[1]).strip() if row[1] is not None else ''
+        col1u = col1.upper()
+
+        if 'CIERRE VIVO' in col1u:
+            mode = 'vivo'; continue
+        if 'CIERRES HIST' in col1u:
+            mode = 'historico'; continue
+        if 'DETALLE HIST' in col1u:
+            mode = 'detalle'; continue
+        if 'C' in col1u and 'MO CERRAR' in col1u:
+            mode = None; continue
+
+        mes_str = col1.lower()
+
+        if mode == 'vivo' and mes_str in MES_STR:
+            vivo = mes_str
+            m = MES_STR[mes_str]
+            cierres[m] = {
+                'tc': sf(row[2]), 'personas': sf(row[3]),
+                'horas': sf(row[4]), 'total_usd': sf(row[5]),
+                'total_mxn': sf(row[6]),
+                'neto_mxn': 0, 'neto_usd': 0,
+                'is_vivo': True,
+            }
+
+        elif mode == 'historico' and mes_str in MES_STR:
+            m = MES_STR[mes_str]
+            cierres[m] = {
+                'tc': sf(row[2]), 'personas': sf(row[3]),
+                'horas': sf(row[4]), 'total_usd': sf(row[5]),
+                'total_mxn': sf(row[6]), 'neto_mxn': sf(row[7]),
+                'neto_usd': sf(row[8]) if len(row)>8 and row[8] else 0,
+                'is_vivo': False,
+            }
+
+        elif mode == 'detalle' and mes_str in MES_STR:
+            m = MES_STR[mes_str]
+            cliente = str(row[2]).strip() if row[2] else ''
+            if not cliente or cliente.upper() in ('CLIENTE', 'TOTAL', 'MES CIERRE'): continue
+            if 'TOTAL' in cliente.upper(): continue
+            if m not in detalle: detalle[m] = []
+            detalle[m].append({
+                'c': cliente,
+                'p': int(sf(row[3])),
+                'h': round(sf(row[4]), 2),
+                'usd': round(sf(row[5]), 2),
+                'mxn': round(sf(row[6]), 2),
+                'neto_mxn': round(sf(row[7]), 2),
+                'neto_usd': round(sf(row[8]), 2) if len(row)>8 and row[8] else 0,
+            })
+
+    wb.close()
+    print(f"    Cierres: {list(cierres.keys())}  Vivo: {vivo}")
+    for m, d in cierres.items():
+        print(f"    {m}: horas={d['horas']:.1f} usd=${d['total_usd']:,.0f} neto_mxn=${d['neto_mxn']:,.0f}")
+    return cierres, detalle, vivo
 
 # ── HORAS detalle para DATA y BREAKDOWN ──────────────────────────────────────
 def extraer_horas():
@@ -571,6 +683,139 @@ function buildCostosCharts(){
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
     return html
 
+def actualizar_pasivo_html(html, cierres, detalle, vivo):
+    """Actualiza la sección hardcodeada de HISTORIAL PASIVOS en el HTML."""
+    print("  Actualizando HISTORIAL PASIVOS en HTML...")
+
+    fN = lambda n: f"{n:,.1f}" if n != int(n) else f"{int(n):,}"
+    fU = lambda n: f"${int(round(n)):,}"
+
+    # 1. Actualizar badge "Cierre vivo"
+    if vivo:
+        import re
+        html = re.sub(
+            r'⚡ Cierre vivo: [a-z]{3}-\d{2,4}',
+            f'⚡ Cierre vivo: {vivo}',
+            html
+        )
+
+    # 2. Actualizar KPI cards del cierre vivo
+    if vivo:
+        m_vivo = {'ene-26':'ENE','feb-26':'FEB','mar-26':'MAR','abr-26':'ABR',
+                  'may-26':'MAY','jun-26':'JUN','jul-26':'JUL','ago-26':'AGO','sep-26':'SEP'}.get(vivo)
+        if m_vivo and m_vivo in cierres:
+            d = cierres[m_vivo]
+            n_clientes = len(detalle.get(m_vivo, []))
+            import re
+            # Personas
+            html = re.sub(r'(<div class="kpi-value" style="color:var\(--navy\)">)\d+(</div>\s*<div class="kpi-sub">Recursos)',
+                          lambda x: f'{x.group(1)}{int(d["personas"])}{x.group(2)}', html)
+            # Horas pendientes
+            html = re.sub(r'(<div class="kpi-value" style="color:var\(--blue\)">)[0-9,.]+(</div>)',
+                          lambda x: f'{x.group(1)}{fN(d["horas"])}{x.group(2)}', html, count=1)
+            # Total USD
+            html = re.sub(r'(<div class="kpi-value" style="color:var\(--green\)">\$)[0-9,]+(</div>\s*<div class="kpi-sub">TC:)',
+                          lambda x: f'{x.group(1)}{int(round(d["total_usd"])):,}{x.group(2)}', html)
+            # TC en sub
+            html = re.sub(r'(TC: )[0-9.]+', f'TC: {d["tc"]:.4f}', html, count=1)
+            # Neto MXN
+            html = re.sub(r'(<div class="kpi-value" style="color:var\(--gold\)">\$)[0-9,]+(</div>)',
+                          lambda x: f'{x.group(1)}{int(round(d["neto_mxn"])):,}{x.group(2)}', html, count=1)
+            # Neto USD
+            html = re.sub(r'(<div class="kpi-value" style="color:var\(--green\)">\$)[0-9,]+(</div>\s*<div class="kpi-sub">MATUK)',
+                          lambda x: f'{x.group(1)}{int(round(d["neto_usd"])):,}{x.group(2)}', html)
+            # Clientes
+            html = re.sub(r'(Con horas pendientes )[a-z]{3}-\d{2,4}', f'Con horas pendientes {vivo}', html)
+
+    # 3. Reconstruir tabla CIERRES HISTÓRICOS
+    orden_meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP']
+    MES_LABEL = {'ENE':'ene-26','FEB':'feb-26','MAR':'mar-26','ABR':'abr-26',
+                 'MAY':'may-26','JUN':'jun-26','JUL':'jul-26','AGO':'ago-26','SEP':'sep-26'}
+    m_vivo_code = {'ene-26':'ENE','feb-26':'FEB','mar-26':'MAR','abr-26':'ABR',
+                   'may-26':'MAY','jun-26':'JUN','jul-26':'JUL','ago-26':'AGO','sep-26':'SEP'}.get(vivo,'')
+
+    rows_html = ''
+    alt = False
+    for m in orden_meses:
+        if m not in cierres: continue
+        if m == m_vivo_code: continue  # cierre vivo no va en históricos
+        d = cierres[m]
+        bg = '#F9FAFB' if alt else '#fff'
+        alt = not alt
+        neto_usd_str = fU(d['neto_usd']) if d['neto_usd'] > 0 else '—'
+        neto_usd_color = '#059669' if d['neto_usd'] > 0 else '#9CA3AF'
+        rows_html += f'''          <tr style="background:{bg};border-bottom:1px solid #F3F4F6">
+            <td style="padding:10px 14px;font-weight:600;color:var(--navy)">{MES_LABEL[m]}</td>
+            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">{d["tc"]:.4f}</td>
+            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">{int(d["personas"])}</td>
+            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#1F5BA6;font-weight:600">{fN(d["horas"])}</td>
+            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#059669;font-weight:600">{fU(d["total_usd"])}</td>
+            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">{fU(d["total_mxn"])}</td>
+            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">{fU(d["neto_mxn"])}</td>
+            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums;color:{neto_usd_color}">{neto_usd_str}</td>
+          </tr>\n'''
+
+    # Reemplazar tbody de cierres históricos (funciona con tbody vacío o con filas)
+    import re
+    # Intentar con filas existentes primero
+    new_html, n = re.subn(
+        r'(<tbody>\s*)(?:<tr[\s\S]*?</tr>\s*)+(</tbody>)',
+        lambda x: x.group(1) + rows_html + x.group(2),
+        html, count=1
+    )
+    if n:
+        html = new_html
+    else:
+        # tbody completamente vacío
+        for pat in ['<tbody>\n          </tbody>', '<tbody>\n        </tbody>', '<tbody></tbody>']:
+            if pat in html:
+                html = html.replace(pat, '<tbody>\n' + rows_html + pat[7:], 1)
+                break
+
+    # 4. Reconstruir PASIVOS JS y botones de tabs
+    tabs_html = ''
+    pasivos_js = {}
+    btn_styles_first = True
+    for m in orden_meses:
+        if m not in detalle or not detalle[m]: continue
+        label = MES_LABEL[m]
+        btn_id = f"pbtn-{label[:3]}"
+        if btn_styles_first:
+            style = 'background:var(--navy);color:#fff;border:1.5px solid var(--navy)'
+            btn_styles_first = False
+        else:
+            style = 'border:1.5px solid #D1D5DB;background:#fff;color:#374151'
+        tabs_html += f'      <button onclick="showPasivoMes(\'{label}\',this)" id="{btn_id}" style="padding:5px 14px;border-radius:20px;{style};font-size:.7rem;font-weight:700;cursor:pointer">{label}</button>\n'
+        pasivos_js[label] = detalle[m]
+
+    # Reemplazar tabs
+    html = re.sub(
+        r'(<div style="display:flex;gap:8px;margin-bottom:8px">)\s*(?:<button[^>]*>.*?</button>\s*)+\s*(</div>)',
+        lambda x: x.group(1) + '\n' + tabs_html + '    ' + x.group(2),
+        html, count=1, flags=re.DOTALL
+    )
+
+    # Reemplazar const PASIVOS
+    pasivos_str = json.dumps(pasivos_js, ensure_ascii=False)
+    html = re.sub(
+        r'const PASIVOS = \{[\s\S]*?\};',
+        f'const PASIVOS = {pasivos_str};',
+        html, count=1
+    )
+
+    # Actualizar showPasivoMes call en showTab con el primer mes disponible
+    first_mes = MES_LABEL.get([m for m in orden_meses if m in detalle and detalle[m]][0] if any(detalle.get(m) for m in orden_meses) else 'JUL', 'jul-26')
+    first_btn_id = f"pbtn-{first_mes[:3]}"
+    html = re.sub(
+        r"showPasivoMes\('[a-z]{3}-\d{2}', document\.getElementById\('pbtn-[a-z]{3}'\)\)",
+        f"showPasivoMes('{first_mes}', document.getElementById('{first_btn_id}'))",
+        html, count=1
+    )
+
+    print(f"    OK HISTORIAL PASIVOS actualizado — meses: {[MES_LABEL[m] for m in orden_meses if m in cierres]}")
+    return html
+
+
 def main():
     print("="*60)
     print("  MATUK Dashboard 2026 - Regenerando")
@@ -585,6 +830,7 @@ def main():
     fdata                   = extraer_fdata()
     horas_data, breakdown   = extraer_horas()
     costos                  = extraer_costos(tc_mes)
+    cierres, detalle, vivo  = extraer_pasivo()
 
     print()
     for m in MESES:
@@ -593,8 +839,12 @@ def main():
         print(f"  {m}: {round(d['hours'])}h  ING_MXN={total_mes[m]:>12,.0f}  COSTOS_USD={c.get('usd_total',0):>9,.0f}")
     print()
 
-    actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
-                    horas_data, breakdown, costos, fdata)
+    # Actualizar sección HISTORIAL PASIVOS (hardcodeada en HTML)
+    print("  Aplicando datos de HISTORIAL PASIVOS...")
+    with open(OUTPUT_HTML, 'r', encoding='utf-8') as f: html_p = f.read()
+    html_p = actualizar_pasivo_html(html_p, cierres, detalle, vivo)
+    with open(OUTPUT_HTML, 'w', encoding='utf-8') as f: f.write(html_p)
+    print(f"  OK guardado con pasivos ({len(html_p):,} bytes)")
 
     # ── Agregar meses futuros con ceros para evitar errores JS ────────────────
     # MONTHS, CMONTHS y FMONTHS en el HTML pueden tener SEP/OCT
