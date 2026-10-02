@@ -2784,10 +2784,12 @@ function rsRender(){
   // ====== SECCIÓN: TOP CLIENTES (con % share) ======
   const colors8 = ['#1F5BA6','#059669','#E8A020','#DC2626','#7C3AED','#0891B2','#DB2777','#EA580C'];
   // Calcular totales de clientes según meses filtrados
+  const RS_NON_CLIENTS = new Set(['GASTOS','SEGUROS','IMPUESTOS','COSTOS FIJOS','PRESTAMO','EST FI','ESTFI']);
   var cliFiltered = {};
   months.forEach(function(m){
     if(FCLIENTES_MES[m]){
       Object.entries(FCLIENTES_MES[m]).forEach(function(e){
+        if(RS_NON_CLIENTS.has(e[0])) return;
         const name=e[0], val=(typeof e[1]==='object' ? (e[1].mx||0) : (e[1]||0));
         cliFiltered[name] = (cliFiltered[name]||0) + val;
       });
