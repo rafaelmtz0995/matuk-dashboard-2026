@@ -678,6 +678,49 @@ function buildCostosCharts(){
     else:
         fixes_ok.append("Canvas graficas costos (ya OK)")
 
+    # FIX FLUJO: botones de mes, textos ENE-XXX y subtítulo Saldo Final
+    # Determinar último mes con datos en FDATA
+    MESES_ORD = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
+    MES_NOMBRE = {'ENE':'enero','FEB':'febrero','MAR':'marzo','ABR':'abril','MAY':'mayo',
+                  'JUN':'junio','JUL':'julio','AGO':'agosto','SEP':'septiembre',
+                  'OCT':'octubre','NOV':'noviembre','DIC':'diciembre'}
+    import re as _re2
+    fdata_m = _re2.search(r'var FDATA=\{([^}]+)', html)
+    ultimo_mes_flujo = 'AGO'
+    if fdata_m:
+        meses_en_fdata = _re2.findall(r'"([A-Z]{3})":\s*\{', html[fdata_m.start():fdata_m.start()+8000])
+        for m in reversed(MESES_ORD):
+            if m in meses_en_fdata:
+                ultimo_mes_flujo = m
+                break
+
+    # Agregar botón del último mes si no existe
+    btn_id_ultimo = f'data-m="{ultimo_mes_flujo}"'
+    if btn_id_ultimo not in html:
+        old_ago_btn = f'<button class="fmes-btn" data-m="AGO" onclick="fSetMes('AGO',this)">AGO</button>'
+        new_buttons = old_ago_btn + f'\n    <button class="fmes-btn" data-m="{ultimo_mes_flujo}" onclick="fSetMes(\'{ultimo_mes_flujo}\',this)">{ultimo_mes_flujo}</button>'
+        if old_ago_btn in html:
+            html = html.replace(old_ago_btn, new_buttons, 1)
+            fixes_ok.append(f"Botón {ultimo_mes_flujo} flujo")
+
+    # Actualizar textos ENE–??? al rango correcto
+    for old_rng in ['ENE–ENE','ENE–FEB','ENE–MAR','ENE–ABR','ENE–MAY','ENE–JUN',
+                    'ENE–JUL','ENE–AGO','ENE–SEP','ENE–OCT','ENE–NOV','ENE-AGO',
+                    'ENE-SEP','ENE-ENE','ENE-FEB','ENE-MAR']:
+        if old_rng in html:
+            html = html.replace(old_rng, f'ENE–{ultimo_mes_flujo}')
+            fixes_ok.append(f"Rango flujo {old_rng}→ENE–{ultimo_mes_flujo}")
+
+    # Actualizar subtítulo Saldo Final
+    mes_nombre = MES_NOMBRE.get(ultimo_mes_flujo, ultimo_mes_flujo.lower())
+    for m_nombre in MES_NOMBRE.values():
+        old_sub = f"'Saldo final {m_nombre} 2026'"
+        if old_sub in html:
+            new_sub = f"'Saldo final {mes_nombre} 2026'"
+            html = html.replace(old_sub, new_sub, 1)
+            fixes_ok.append(f"Subtítulo saldo final →{mes_nombre}")
+            break
+
     print("  FIXES OK:", ", ".join(fixes_ok))
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
