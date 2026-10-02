@@ -301,7 +301,7 @@ footer strong{color:#fff}
 <div style="padding:28px 32px">
 <!-- KPIs principales -->
 <div class="rs-section">
-  <div class="rs-sec-title" id="rs-kpi-title">Indicadores Clave — ENE a AGO 2026</div>
+  <div class="rs-sec-title" id="rs-kpi-title">Indicadores Clave — ENE a SEP 2026</div>
   <div class="rs-kpi-grid" id="rs-kpis"></div>
 </div>
 
@@ -674,7 +674,7 @@ footer strong{color:#fff}
           </tr>
         </thead>
         <tbody>
-                                                            <tr style="background:#fff;border-bottom:1px solid #F3F4F6">
+                                                                                                              <tr style="background:#fff;border-bottom:1px solid #F3F4F6">
             <td style="padding:10px 14px;font-weight:600;color:var(--navy)">jul-26</td>
             <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">17.3562</td>
             <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">17</td>
@@ -2240,7 +2240,7 @@ function fRenderKPIs(){
   document.getElementById('fk-saldo-lbl').textContent = 'Saldo Final ' + months[months.length-1];
   document.getElementById('fk-ing-lbl').textContent   = 'Ingresos ' + (isSingle?fMes:'YTD');
   document.getElementById('fk-egr-lbl').textContent   = 'Egresos ' + (isSingle?fMes:'YTD');
-  document.getElementById('fk-saldo-sub').textContent = isSingle ? 'Saldo acumulado al cierre de '+fMes : 'Saldo final diciembre 2026';
+  document.getElementById('fk-saldo-sub').textContent = isSingle ? 'Saldo acumulado al cierre de '+fMes : 'Saldo final septiembre 2026';
   document.getElementById('fk-ing-sub').textContent   = isSingle ? 'Cobros ingresados en '+fMes : 'Cobros acumulados ENE–DIC';
   document.getElementById('fk-egr-sub').textContent   = isSingle ? 'Pagos realizados en '+fMes : 'Pagos acumulados ENE–DIC';
   document.getElementById('fk-margen-sub').textContent= margen>=0 ? 'Ingresos > Egresos ✓' : 'Egresos > Ingresos ⚠';
@@ -2717,7 +2717,7 @@ function rsRender(){
 
   // --- HERO STATS ---
   var kpiTitle = document.getElementById('rs-kpi-title');
-  if(kpiTitle) kpiTitle.textContent = rsMes==='TODOS' ? 'Indicadores Clave — ENE a AGO 2026' : 'Indicadores Clave — '+rsMes+' 2026';
+  if(kpiTitle) kpiTitle.textContent = rsMes==='TODOS' ? 'Indicadores Clave — ENE a SEP 2026' : 'Indicadores Clave — '+rsMes+' 2026';
   var heroSub = document.getElementById('rs-hero-sub');
   if(heroSub) heroSub.textContent = rsMes==='TODOS' ? 'Consolidado ENE–DIC · Horas · Costos · Flujo de Caja' : 'Mes: '+rsMes+' · Horas · Costos · Flujo de Caja';
   var heroStats = document.getElementById('rs-hero-stats');
