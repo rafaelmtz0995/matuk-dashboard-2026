@@ -2267,6 +2267,23 @@ function fRenderBancos(){
   document.getElementById('fb-bmxmn').textContent   = fFmt(FBANCOS_ENE.bmxmn[k]);
 }
 
+
+// Polyfill para ctx.roundRect (no disponible en browsers < Chrome 99)
+if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+    var radius = typeof r === 'number' ? r : (Array.isArray(r) ? r[0] : 0);
+    this.moveTo(x+radius,y);
+    this.lineTo(x+w-radius,y);
+    this.quadraticCurveTo(x+w,y,x+w,y+radius);
+    this.lineTo(x+w,y+h-radius);
+    this.quadraticCurveTo(x+w,y+h,x+w-radius,y+h);
+    this.lineTo(x+radius,y+h);
+    this.quadraticCurveTo(x,y+h,x,y+h-radius);
+    this.lineTo(x,y+radius);
+    this.quadraticCurveTo(x,y,x+radius,y);
+    this.closePath();
+  };
+}
 function fRenderBarIngEgr(){
   const canvas = document.getElementById('f-bar-ie');
   if(!canvas) return;
@@ -2687,7 +2704,7 @@ function setRsMes(m){
   rsRender();
 }
 function rsRender(){
-  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO'];
+  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP'];
   const months = rsMes==='TODOS' ? allMonths : [rsMes];
   const fmt  = function(v){ return '$'+(v/1e6).toFixed(1)+'M'; };
   const fmtM = function(v){ return '$'+(v/1e6).toFixed(2)+'M'; };

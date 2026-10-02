@@ -777,6 +777,42 @@ function buildCostosCharts(){
     elif new_viat in html:
         fixes_ok.append('perdiem_usd formula(ya)')
 
+    # Fix rsRender allMonths: incluir SEP en el Resumen
+    old_rs = "  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO'];"
+    new_rs = "  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP'];"
+    if old_rs in html:
+        html = html.replace(old_rs, new_rs)
+        fixes_ok.append('rsRender allMonths +SEP')
+    elif new_rs in html:
+        fixes_ok.append('rsRender allMonths +SEP (ya OK)')
+
+    # Fix polyfill roundRect para Chrome < 99
+    polyfill_marker = 'CanvasRenderingContext2D.prototype.roundRect'
+    polyfill_code = '''
+// Polyfill para ctx.roundRect (no disponible en browsers < Chrome 99)
+if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+    var radius = typeof r === 'number' ? r : (Array.isArray(r) ? r[0] : 0);
+    this.moveTo(x+radius,y);
+    this.lineTo(x+w-radius,y);
+    this.quadraticCurveTo(x+w,y,x+w,y+radius);
+    this.lineTo(x+w,y+h-radius);
+    this.quadraticCurveTo(x+w,y+h,x+w-radius,y+h);
+    this.lineTo(x+radius,y+h);
+    this.quadraticCurveTo(x,y+h,x,y+h-radius);
+    this.lineTo(x,y+radius);
+    this.quadraticCurveTo(x,y,x+radius,y);
+    this.closePath();
+  };
+}
+'''
+    target_fn = 'function fRenderBarIngEgr(){'
+    if polyfill_marker not in html and target_fn in html:
+        html = html.replace(target_fn, polyfill_code + target_fn, 1)
+        fixes_ok.append('polyfill roundRect')
+    elif polyfill_marker in html:
+        fixes_ok.append('polyfill roundRect (ya OK)')
+
     print("  FIXES OK:", ", ".join(fixes_ok))
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
