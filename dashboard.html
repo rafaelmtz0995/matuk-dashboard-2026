@@ -1580,7 +1580,9 @@ function toggleCostosBreak(mes){
 
 // KPI STRIP
 function buildCostosKPIs(){
-  var months=Object.keys(COSTOS);
+  var allMonths=CMONTHS.filter(m=>COSTOS[m]);
+  var months=(typeof cCurrentMes!=="undefined"&&cCurrentMes!=="TODOS")
+    ? [cCurrentMes].filter(m=>COSTOS[m]) : allMonths;
   var totalUSD=0,totalHrsUSD=0,totalViat=0,totalMXN=0;
   var peakMes='',peakVal=0;
   var clienteSet=new Set(), svcSet=new Set();
@@ -1697,6 +1699,7 @@ function cFilterMes(m){
   const inp = document.getElementById('cSearchInput');
   if(inp && inp.value){ inp.value=''; searchCostosTable(''); }
   buildCostosTable();
+  buildCostosKPIs();
   buildCostosCharts();
 }
 

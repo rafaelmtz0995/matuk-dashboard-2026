@@ -721,6 +721,27 @@ function buildCostosCharts(){
             fixes_ok.append(f"Subtítulo saldo final →{mes_nombre}")
             break
 
+    # FIX 6: buildCostosKPIs — respetar cCurrentMes al filtrar por mes
+    OLD6a = 'function buildCostosKPIs(){\n  var months=Object.keys(COSTOS);'
+    NEW6a = '''function buildCostosKPIs(){
+  var allMonths=CMONTHS.filter(m=>COSTOS[m]);
+  var months=(typeof cCurrentMes!=="undefined"&&cCurrentMes!=="TODOS")
+    ? [cCurrentMes].filter(m=>COSTOS[m]) : allMonths;'''
+    if OLD6a in html:
+        html = html.replace(OLD6a, NEW6a, 1); fixes_ok.append("buildCostosKPIs filtro mes")
+    elif 'allMonths=CMONTHS.filter' in html:
+        fixes_ok.append("buildCostosKPIs filtro mes (ya OK)")
+    else:
+        fixes_fail.append("buildCostosKPIs filtro mes")
+
+    # FIX 6b: cFilterMes llama buildCostosKPIs
+    OLD6b = '  buildCostosTable();\n  buildCostosCharts();\n}'
+    NEW6b = '  buildCostosTable();\n  buildCostosKPIs();\n  buildCostosCharts();\n}'
+    if OLD6b in html and 'buildCostosKPIs' not in html[html.find('function cFilterMes'):html.find('function cFilterMes')+300]:
+        html = html.replace(OLD6b, NEW6b, 1); fixes_ok.append("cFilterMes→buildCostosKPIs")
+    elif 'buildCostosKPIs' in html[html.find('function cFilterMes'):html.find('function cFilterMes')+300]:
+        fixes_ok.append("cFilterMes→buildCostosKPIs (ya OK)")
+
     print("  FIXES OK:", ", ".join(fixes_ok))
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
