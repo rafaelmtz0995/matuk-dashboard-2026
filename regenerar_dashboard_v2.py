@@ -16,15 +16,16 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 FLUJO_FILE = None
 for c in [
-    os.path.join(HOME,"mnt","Matuk Automation service","Hugo Carreon - BANCOS","Flujo de Caja 2026.xlsx"),
-    os.path.join(HOME,"mnt","Desktop","Hugo Carreon - BANCOS","Flujo de Caja 2026.xlsx"),
+    os.path.join(HOME, "Matuk Automation service", "Hugo Carreon - BANCOS", "Flujo de Caja 2026.xlsx"),
+    os.path.join(HOME, "mnt", "Matuk Automation service", "Hugo Carreon - BANCOS", "Flujo de Caja 2026.xlsx"),
 ]:
     if os.path.exists(c): FLUJO_FILE = c; break
 
 PAGOS_FILE = None
 for c in [
-    os.path.join(SCRIPT_DIR,"Servicio Administrativo Pagos 2026.xlsx"),
-    os.path.join(HOME,"mnt","Desktop","Copia de Servicio Administrativo Pagos 2026.xlsx"),
+    os.path.join(HOME, "Matuk Automation service", "Matuk Automation Repository - Documentos", "Reporte de horas 2022", "Servicio Administrativo Pagos 2026.xlsx"),
+    os.path.join(HOME, "mnt", "Matuk Automation service", "Matuk Automation Repository - Documentos", "Reporte de horas 2022", "Servicio Administrativo Pagos 2026.xlsx"),
+    os.path.join(SCRIPT_DIR, "Servicio Administrativo Pagos 2026.xlsx"),
 ]:
     if os.path.exists(c): PAGOS_FILE = c; break
 
@@ -34,15 +35,15 @@ print(f"FLUJO : {FLUJO_FILE}")
 print(f"PAGOS : {PAGOS_FILE}")
 print(f"HTML  : {OUTPUT_HTML}")
 
-MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO']
-MES_MAP = {1:'ENE',2:'FEB',3:'MAR',4:'ABR',5:'MAY',6:'JUN',7:'JUL',8:'AGO'}
-CMONTHS = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO']
+MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP']
+MES_MAP = {1:'ENE',2:'FEB',3:'MAR',4:'ABR',5:'MAY',6:'JUN',7:'JUL',8:'AGO',9:'SEP'}
+CMONTHS = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP']
 
 MES_LARGO = {
     'ENERO':'ENE','FEBRERO':'FEB','MARZO':'MAR','MARZO ':'MAR','ENERO ':'ENE',
-    'ABRIL':'ABR','MAYO':'MAY','JUNIO':'JUN','JULIO':'JUL','AGOSTO':'AGO',
+    'ABRIL':'ABR','MAYO':'MAY','JUNIO':'JUN','JULIO':'JUL','AGOSTO':'AGO','SEPTIEMBRE':'SEP',
     'FEBRERO ':'FEB','ABRIL ':'ABR','MAYO ':'MAY','JUNIO ':'JUN',
-    'JULIO ':'JUL','AGOSTO ':'AGO',
+    'JULIO ':'JUL','AGOSTO ':'AGO','SEPTIEMBRE':'SEP','SEPTIEMBRE ':'SEP',
 }
 
 EXCLUIR_ING = {
@@ -179,7 +180,7 @@ def extraer_horas():
         if not row[3] or 'HOURS' not in str(row[3]).upper(): continue
         wm = row[11]
         if not isinstance(wm, datetime.datetime) or wm.year != 2026: continue
-        if not (1 <= wm.month <= 8): continue
+        if not (1 <= wm.month <= 9): continue
         m = MES_MAP[wm.month]
 
         hrs=sf(row[13]); st=sf(row[14]); ot=sf(row[15]); dt=sf(row[16])
@@ -220,7 +221,7 @@ def extraer_costos(tc_mes):
         (2025,11):'NOV', (2025,12):'DIC',
         (2026,1):'ENE',  (2026,2):'FEB',  (2026,3):'MAR',
         (2026,4):'ABR',  (2026,5):'MAY',  (2026,6):'JUN',
-        (2026,7):'JUL',  (2026,8):'AGO',
+        (2026,7):'JUL',  (2026,8):'AGO',  (2026,9):'SEP',
     }
     for row in rows[9:24]:  # filas con datos mensuales
         fecha = row[1]
@@ -626,7 +627,7 @@ def main():
             j += 1
         return html, False
 
-    MESES_EXTRA = ['SEP','OCT','NOV','DIC']
+    MESES_EXTRA = ['OCT','NOV','DIC']
     EMPTY_DATA   = lambda m: {'hours':0,'st':0,'ot':0,'dt':0,'res':0}
     EMPTY_FDATA  = lambda m: {k:0.0 for k in ['ing_mx','ing_dls','egr_mx','egr_dls',
                               'saldo_mx','saldo_dls','horas_mx','horas_dls','viat_mx','viat_dls',
