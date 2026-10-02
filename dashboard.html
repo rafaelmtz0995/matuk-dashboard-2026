@@ -1317,7 +1317,7 @@ var COSTOS_OTROS_USD = {
   'JUN': 2577.03,
   'JUL': 14176.08,
   'AGO': 24601.82,
-  'SEP': 30813.73,
+  'SEP': 30748.57,
 };
 function buildCostosTable(){
   const tb = document.getElementById('ctbody');
@@ -2367,10 +2367,11 @@ function fRenderClientes(){
   if(headerEl) headerEl.textContent = isMes ? 'Clientes que pagaron en ' + fMes : 'Top Clientes (acumulado YTD)';
 
   let entries;
+  const NON_CLIENTS = new Set(['GASTOS','SEGUROS','IMPUESTOS','COSTOS FIJOS','PRESTAMO','EST FI','ESTFI']);
   if(isMes && FCLIENTES_MES[fMes]) {
-    entries = Object.entries(FCLIENTES_MES[fMes]).sort((a,b)=>b[1]-a[1]);
+    entries = Object.entries(FCLIENTES_MES[fMes]).filter(e=>!NON_CLIENTS.has(e[0])).sort((a,b)=>b[1]-a[1]);
   } else {
-    entries = Object.entries(FCLIENTES).sort((a,b)=>b[1].mx-a[1].mx).map(e=>[e[0], e[1].mx]);
+    entries = Object.entries(FCLIENTES).filter(e=>!NON_CLIENTS.has(e[0])).sort((a,b)=>b[1].mx-a[1].mx).map(e=>[e[0], e[1].mx]);
   }
 
   const total = entries.reduce((a,e)=>a+e[1], 0);
