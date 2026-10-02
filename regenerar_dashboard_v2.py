@@ -775,25 +775,30 @@ def actualizar_pasivo_html(html, cierres, detalle, vivo):
     # 4. Reconstruir PASIVOS JS y botones de tabs
     tabs_html = ''
     pasivos_js = {}
-    btn_styles_first = True
-    for m in orden_meses:
-        if m not in detalle or not detalle[m]: continue
+    meses_disponibles = [m for m in orden_meses if m in detalle and detalle[m]]
+    ultimo_mes = meses_disponibles[-1] if meses_disponibles else None
+    for m in meses_disponibles:
         label = MES_LABEL[m]
         btn_id = f"pbtn-{label[:3]}"
-        if btn_styles_first:
-            style = 'background:var(--navy);color:#fff;border:1.5px solid var(--navy)'
-            btn_styles_first = False
+        # Botón activo = el ÚLTIMO mes (más reciente)
+        if m == ultimo_mes:
+            style = 'background:var(--blue);color:#fff;border:1px solid var(--blue)'
         else:
-            style = 'border:1.5px solid #D1D5DB;background:#fff;color:#374151'
-        tabs_html += f'      <button onclick="showPasivoMes(\'{label}\',this)" id="{btn_id}" style="padding:5px 14px;border-radius:20px;{style};font-size:.7rem;font-weight:700;cursor:pointer">{label}</button>\n'
+            style = 'border:1px solid #CBD5E1;background:#F1F5F9;color:#64748B'
+        tabs_html += f'      <button onclick="showPasivoMes(\'{label}\',this)" id="{btn_id}" style="padding:5px 12px;border-radius:6px;{style};font-size:.75rem;cursor:pointer">{label.upper()}</button>\n'
         pasivos_js[label] = detalle[m]
 
-    # Reemplazar tabs
-    html = re.sub(
-        r'(<div style="display:flex;gap:8px;margin-bottom:8px">)\s*(?:<button[^>]*>.*?</button>\s*)+\s*(</div>)',
+    # Reemplazar tabs (funciona con div vacío o con botones existentes)
+    import re as _re
+    new_html, n = _re.subn(
+        r'(<div style="display:flex;gap:8px;margin-bottom:8px">)\s*(?:<button[\s\S]*?</button>\s*)*(</div>)',
         lambda x: x.group(1) + '\n' + tabs_html + '    ' + x.group(2),
-        html, count=1, flags=re.DOTALL
+        html, count=1
     )
+    if n:
+        html = new_html
+    else:
+        print('    ⚠️  No se encontró div de tabs para reemplazar')
 
     # Reemplazar const PASIVOS
     pasivos_str = json.dumps(pasivos_js, ensure_ascii=False)
