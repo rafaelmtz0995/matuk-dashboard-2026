@@ -674,27 +674,7 @@ footer strong{color:#fff}
           </tr>
         </thead>
         <tbody>
-          <tr style="background:#fff;border-bottom:1px solid #F3F4F6">
-            <td style="padding:10px 14px;font-weight:600;color:var(--navy)">jul-26</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">17.3562</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">17</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#1F5BA6;font-weight:600">1,858.3</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#059669;font-weight:600">$63,464</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">$942,164</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">$901,245</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#059669">$9,180</td>
-          </tr>
-          <tr style="background:#F9FAFB;border-bottom:1px solid #F3F4F6">
-            <td style="padding:10px 14px;font-weight:600;color:var(--navy)">ago-26</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">17.0427</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">9</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#1F5BA6;font-weight:600">1,110.2</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#059669;font-weight:600">$39,948</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">$522,835</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums">$492,779</td>
-            <td style="padding:10px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#059669">$9,270</td>
-          </tr>
-        </tbody>
+          </tbody>
       </table>
     </div>
   </div>
@@ -704,8 +684,6 @@ footer strong{color:#fff}
     <div style="font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-bottom:6px;border-left:3px solid var(--blue);padding-left:8px">Detalle Histórico por Cliente</div>
     <!-- Tabs for months -->
     <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button onclick="showPasivoMes('jul-26',this)" id="pbtn-jul" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--navy);background:var(--navy);color:#fff;font-size:.7rem;font-weight:700;cursor:pointer">jul-26</button>
-      <button onclick="showPasivoMes('ago-26',this)" id="pbtn-ago" style="padding:5px 14px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;color:#374151;font-size:.7rem;font-weight:700;cursor:pointer">ago-26</button>
     </div>
     <div style="overflow-x:auto;border-radius:8px;border:1px solid #E5E7EB">
       <table style="width:100%;border-collapse:collapse;font-size:.78rem">
@@ -1639,28 +1617,7 @@ function showTab(t){
 }
 
 // PASIVOS DATA
-const PASIVOS = {
-  'jul-26': [
-    {c:'SW NORTH AMERICA, INC', p:6, h:523.5, usd:17262.5, mxn:299611, neto_mxn:296950, neto_usd:0},
-    {c:'MATUK LLC', p:3, h:576, usd:21080, mxn:206539, neto_mxn:204687, neto_usd:9180},
-    {c:'GENERAL MOTORS MX', p:2, h:206.5, usd:6625, mxn:114985, neto_mxn:107521, neto_usd:0},
-    {c:'PARI', p:1, h:185, usd:6475, mxn:112381, neto_mxn:100836, neto_usd:0},
-    {c:'ATS LIFE SCIENCE', p:1, h:111.75, usd:3129, mxn:54308, neto_mxn:53722, neto_usd:0},
-    {c:'MEHNERT USA, LLC.', p:1, h:74, usd:2368, mxn:41099, neto_mxn:36877, neto_usd:0},
-    {c:'MOVEATECH', p:1, h:58, usd:3364, mxn:58386, neto_mxn:47984, neto_usd:0},
-    {c:'HALSTON SOFTWARE', p:1, h:80, usd:2160, mxn:37489, neto_mxn:37085, neto_usd:0},
-    {c:'COMAU AUTOMATIZACION', p:1, h:43.5, usd:1001, mxn:17365, neto_mxn:15581, neto_usd:0},
-  ],
-  'ago-26': [
-    {c:'ATS LIFE SCIENCE', p:1, h:113, usd:3390, mxn:57775, neto_mxn:57152, neto_usd:0},
-    {c:'GENERAL MOTORS LLC', p:1, h:95, usd:3800, mxn:64762, neto_mxn:58109, neto_usd:0},
-    {c:'GENERAL MOTORS MX', p:3, h:170, usd:5675, mxn:96717, neto_mxn:89720, neto_usd:0},
-    {c:'MATUK LLC', p:3, h:503, usd:18865, mxn:163525, neto_mxn:162130, neto_usd:9270},
-    {c:'PARI', p:1, h:42, usd:1470, mxn:25053, neto_mxn:22479, neto_usd:0},
-    {c:'SW NORTH AMERICA, INC', p:1, h:98.5, usd:3645, mxn:62112, neto_mxn:55731, neto_usd:0},
-    {c:'ZT GROUP', p:1, h:88.67, usd:3103, mxn:52891, neto_mxn:47458, neto_usd:0},
-  ]
-};
+const PASIVOS = {};
 
 function showPasivoMes(mes, btn){
   // Update button styles
