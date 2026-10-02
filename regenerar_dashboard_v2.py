@@ -979,6 +979,10 @@ def main():
         print(f"  {m}: {round(d['hours'])}h  ING_MXN={total_mes[m]:>12,.0f}  COSTOS_USD={c.get('usd_total',0):>9,.0f}")
     print()
 
+    # Actualizar DATA, FDATA, COSTOS, BREAKDOWN, FCLIENTES, etc. en el HTML
+    actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
+                    horas_data, breakdown, costos, fdata)
+
     # Actualizar sección HISTORIAL PASIVOS (hardcodeada en HTML)
     print("  Aplicando datos de HISTORIAL PASIVOS...")
     with open(OUTPUT_HTML, 'r', encoding='utf-8') as f: html_p = f.read()
