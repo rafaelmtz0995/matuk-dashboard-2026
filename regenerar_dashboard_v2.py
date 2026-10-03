@@ -381,7 +381,7 @@ def extraer_costos(tc_mes):
         costo_total_usd= sf(row[30]) if len(row)>30 else 0.0  # Costo TOTAL USD
 
         if cust not in by_cust_tmp[m]:
-            by_cust_tmp[m][cust] = {'usd_hrs':0,'usd':0,'mxn_hrs':0,'mxn':0,'by_po':{}}
+            by_cust_tmp[m][cust] = {'usd_hrs':0,'usd':0,'mxn_hrs':0,'mxn':0,'by_po':{},'by_svc':{}}
         c = by_cust_tmp[m][cust]
         if divisa == 'MXN':
             tc = tc_mes.get(m, 18.5) if m in MESES else 18.5
@@ -390,6 +390,13 @@ def extraer_costos(tc_mes):
         else:
             c['usd_hrs'] += costo_hrs_usd
             c['usd']     += costo_total_usd
+
+        # Acumular by_svc
+        if svc:
+            if svc not in c['by_svc']:
+                c['by_svc'][svc] = {'svc':svc,'usd_hrs':0,'usd':0}
+            c['by_svc'][svc]['usd_hrs'] += costo_hrs_usd if divisa!='MXN' else 0
+            c['by_svc'][svc]['usd']     += costo_total_usd if divisa!='MXN' else 0
 
         po_key = po
         if po_key not in c['by_po']:
@@ -409,10 +416,12 @@ def extraer_costos(tc_mes):
             by_po = [{'po':pv['po'],'usd_hrs':round(pv['usd_hrs'],2),'usd':round(pv['usd'],2),
                       'mxn_hrs':round(pv['mxn_hrs'],2),'mxn':round(pv['mxn'],2)}
                      for pv in sorted(cv['by_po'].values(),key=lambda x:-x['usd'])]
+            by_svc = [{'svc':sv['svc'],'usd_hrs':round(sv['usd_hrs'],2),'usd':round(sv['usd'],2)}
+                      for sv in sorted(cv.get('by_svc',{}).values(),key=lambda x:-x['usd'])]
             bycust.append({'c':cname,
                            'usd_hrs':round(cv['usd_hrs'],2),'usd':round(cv['usd'],2),
                            'mxn_hrs':round(cv['mxn_hrs'],2),'mxn':round(cv['mxn'],2),
-                           'by_po':by_po})
+                           'by_svc':by_svc,'by_po':by_po})
         costos[m]['by_cust'] = bycust
         costos[m]['tc'] = round(tc_mes.get(m, 0) if m in MESES else 0, 4)
 
