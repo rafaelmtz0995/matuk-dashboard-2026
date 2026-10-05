@@ -112,19 +112,6 @@ def extraer_ingresos():
                         clientes_mes[m][nombre] = clientes_mes[m].get(nombre,0.0)+val
                         total_mes[m] += val
 
-    # Bloque dummy para mantener compatibilidad con el resto del codigo
-    if False:
-        for row in rows[2:]:
-            nombre = str(row[0]).strip().upper() if row[0] else ""
-            if nombre == 'TOTAL GENERAL':
-                break
-        if not nombre or nombre in EXCLUIR_ING: continue
-        for m,col in col_map.items():
-            if col < len(row):
-                val = sf(row[col])
-                if val > 0:
-                    clientes_mes[m][nombre] = clientes_mes[m].get(nombre,0.0)+val
-                    total_mes[m] += val
     wb.close()
     return clientes_mes, total_mes
 
@@ -1032,8 +1019,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
                 if _depth2 == 0: break
             _ci += 1
         _end2 = _idx2 + _ci + 1
-        if html[_end2:_end2+2] in (';
-', '; '):
+        if html[_end2:_end2+2] in (';\n', '; '):
             _end2 += 2
         elif html[_end2] == ';':
             _end2 += 1
