@@ -990,6 +990,38 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append("FCLIENTES_MES (no encontrado)")
 
+    # FIX TOP8 CLIENTES: excluir egresos mezclados en FCLIENTES_MES (GASTOS, SEGUROS, etc)
+    _CLI_OLD = ('var cliFiltered = {};\n'
+                '  months.forEach(function(m){\n'
+                '    if(FCLIENTES_MES[m]){\n'
+                '      Object.entries(FCLIENTES_MES[m]).forEach(function(e){\n'
+                '        const name=e[0], val=(typeof e[1]===\'object\' ? (e[1].mx||0) : (e[1]||0));\n'
+                '        cliFiltered[name] = (cliFiltered[name]||0) + val;\n'
+                '      });\n'
+                '    }\n'
+                '  });')
+    _CLI_NEW = ('var cliFiltered = {};\n'
+                "  var _cliExcluir = [\'GASTOS\',\'SEGUROS\',\'COSTOS FIJOS\',\'IMPUESTOS\',\'PRESTAMO\',\'TRASPASO\',\'EST FI\',\'VENTA ACTIVO FIJO\',\'N\u00d3MINA\',\'NOMINA\',\'COMISIONES\',\'VI\u00c1TICOS\',\'VIATICOS\',\'PTU\'];\n"
+                '  months.forEach(function(m){\n'
+                '    if(FCLIENTES_MES[m]){\n'
+                '      Object.entries(FCLIENTES_MES[m]).forEach(function(e){\n'
+                '        const name=e[0], val=(typeof e[1]===\'object\' ? (e[1].mx||0) : (e[1]||0));\n'
+                '        if(_cliExcluir.indexOf(name) === -1) {\n'
+                '          cliFiltered[name] = (cliFiltered[name]||0) + val;\n'
+                '        }\n'
+                '      });\n'
+                '    }\n'
+                '  });')
+    if _CLI_OLD in html:
+        html = html.replace(_CLI_OLD, _CLI_NEW, 1)
+        fixes_ok.append("TOP8 clientes: filtro egresos aplicado")
+    elif _CLI_NEW in html:
+        fixes_ok.append("TOP8 clientes: filtro egresos (ya OK)")
+    else:
+        fixes_fail.append("TOP8 clientes filtro egresos (bloque no encontrado)")
+
+
+
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
     return html

@@ -2809,11 +2809,14 @@ function rsRender(){
   const colors8 = ['#1F5BA6','#059669','#E8A020','#DC2626','#7C3AED','#0891B2','#DB2777','#EA580C'];
   // Calcular totales de clientes según meses filtrados
   var cliFiltered = {};
+  var _cliExcluir = ['GASTOS','SEGUROS','COSTOS FIJOS','IMPUESTOS','PRESTAMO','TRASPASO','EST FI','VENTA ACTIVO FIJO','NÓMINA','NOMINA','COMISIONES','VIÁTICOS','VIATICOS','PTU'];
   months.forEach(function(m){
     if(FCLIENTES_MES[m]){
       Object.entries(FCLIENTES_MES[m]).forEach(function(e){
         const name=e[0], val=(typeof e[1]==='object' ? (e[1].mx||0) : (e[1]||0));
-        cliFiltered[name] = (cliFiltered[name]||0) + val;
+        if(_cliExcluir.indexOf(name) === -1) {
+          cliFiltered[name] = (cliFiltered[name]||0) + val;
+        }
       });
     }
   });
