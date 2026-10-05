@@ -79,8 +79,9 @@ def extraer_ingresos():
     col_map1 = make_col_map(rows[sec1_idx])
     col_map2 = make_col_map(rows[sec2_idx]) if sec2_idx else {}
 
-    # Solo leer EST FI de la seccion 2 (egresos) — TRASPASO y VENTA ACTIVO FIJO ya estan en seccion 1 (ingresos)
-    EGRESOS_INGRESOS = {'EST FI'}
+    # No leer nada de la seccion 2 — TRASPASO y VENTA ACTIVO FIJO ya estan en seccion 1 (ingresos)
+    # EST FI es egreso y se lee en extraer_fegr_extra()
+    EGRESOS_INGRESOS = set()  # nada de la seccion 2
 
     clientes_mes = {m:{} for m in MESES}
     total_mes    = {m:0.0 for m in MESES}
@@ -621,6 +622,7 @@ def extraer_fegr_extra():
         'SEGUROS':          'seguros',
         'PTU':              'ptu',
         'ESTRATEGIA FISCAL':'estfi',
+        'EST FI':           'estfi',
         'ACTIVO FIJO':      'activo_fijo',
         'Total COSTOS':     'total_costos',
         'TOTAL COSTOS':     'total_costos',
