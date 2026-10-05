@@ -934,16 +934,50 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         fixes_ok.append("COSTOS_OTROS_USD (ya OK)")
 
     print("  FIXES OK:", ", ".join(fixes_ok))
-    # FIX ACTIVO FIJO: agregar al desglose de egresos en Resumen (egrCats rs-egresos)
-    OLD_ESTFI = "{k:'estfi',      label:'Est. Fiscal',     color:'#EF4444',src:'extra'},"
-    NEW_ESTFI = "{k:'estfi',      label:'Est. Fiscal',     color:'#EF4444',src:'extra'},\n    {k:'activo_fijo', label:'Activo Fijo',      color:'#6366F1',src:'extra'},"
-    if OLD_ESTFI in html:
-        html = html.replace(OLD_ESTFI, NEW_ESTFI, 1)
-        fixes_ok.append("Activo Fijo en desglose egresos Resumen")
-    elif 'activo_fijo' in html:
-        fixes_ok.append("Activo Fijo en desglose egresos (ya OK)")
+    # FIX EGRCATS: orden correcto (costos primero, luego gastos) y sin auto-sort por monto
+    OLD_EGRCATS = """  const egrCats = [
+    {k:'horas',      label:'Horas técnicas', color:'#1F5BA6',src:'fdata'},
+    {k:'viat',       label:'Viáticos',        color:'#0369A1',src:'fdata'},
+    {k:'costos_otros',label:'Otros costos',   color:'#0891B2',src:'extra'},
+    {k:'nom',        label:'Nómina admin',    color:'#E8A020',src:'fdata'},
+    {k:'comisiones', label:'Comisiones',      color:'#F59E0B',src:'extra'},
+    {k:'gastos_op',  label:'Gastos op.',      color:'#D97706',src:'extra'},
+    {k:'seguros',    label:'Seguros',         color:'#65A30D',src:'extra'},
+    {k:'imp',        label:'Impuestos',       color:'#94A3B8',src:'fdata'},
+    {k:'amex',       label:'AMEX',            color:'#7C3AED',src:'fdata'},
+    {k:'cf',         label:'Costos fijos',    color:'#06B6D4',src:'fdata'},
+    {k:'ptu',        label:'PTU',             color:'#92400E',src:'extra'},
+    {k:'prestamo',   label:'Préstamo',        color:'#DC2626',src:'extra'},
+    {k:'estfi',      label:'Est. Fiscal',     color:'#EF4444',src:'extra'},
+    {k:'activo_fijo', label:'Activo Fijo',      color:'#6366F1',src:'extra'},
+  ];"""
+    NEW_EGRCATS = """  const egrCats = [
+    {k:'horas',       label:'Horas técnicas', color:'#1F5BA6',src:'fdata'},
+    {k:'viat',        label:'Viáticos',       color:'#0369A1',src:'fdata'},
+    {k:'costos_otros',label:'Otros costos',   color:'#0891B2',src:'extra'},
+    {k:'nom',         label:'Nómina admin',   color:'#E8A020',src:'fdata'},
+    {k:'imp',         label:'Impuestos',      color:'#94A3B8',src:'fdata'},
+    {k:'amex',        label:'AMEX',           color:'#7C3AED',src:'fdata'},
+    {k:'cf',          label:'Costos fijos',   color:'#06B6D4',src:'fdata'},
+    {k:'comisiones',  label:'Comisiones',     color:'#F59E0B',src:'extra'},
+    {k:'gastos_op',   label:'Gastos op.',     color:'#D97706',src:'extra'},
+    {k:'seguros',     label:'Seguros',        color:'#65A30D',src:'extra'},
+    {k:'ptu',         label:'PTU',            color:'#92400E',src:'extra'},
+    {k:'prestamo',    label:'Préstamo',       color:'#DC2626',src:'extra'},
+    {k:'estfi',       label:'Est. Fiscal',    color:'#EF4444',src:'extra'},
+    {k:'activo_fijo', label:'Activo Fijo',    color:'#6366F1',src:'extra'},
+  ];"""
+    OLD_SORT = "}).filter(function(c){ return c.v>0; }).sort((a,b)=>b.v-a.v);"
+    NEW_SORT  = "}).filter(function(c){ return c.v>0; });"
+    if OLD_EGRCATS in html:
+        html = html.replace(OLD_EGRCATS, NEW_EGRCATS, 1)
+        if OLD_SORT in html:
+            html = html.replace(OLD_SORT, NEW_SORT, 1)
+        fixes_ok.append("egrCats orden fijo (costos→gastos)")
+    elif 'activo_fijo' in html and OLD_SORT not in html:
+        fixes_ok.append("egrCats orden fijo (ya OK)")
     else:
-        fixes_fail.append("Activo Fijo en desglose egresos")
+        fixes_fail.append("egrCats orden fijo")
 
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
