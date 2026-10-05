@@ -15,7 +15,7 @@ HOME = os.path.expanduser("~")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 FLUJO_FILE = r"C:\Users\matuk\Matuk Automation service\Hugo Carreon - BANCOS\Flujo de Caja 2026.xlsx"
-PAGOS_FILE = r"C:\Users\matuk\Matuk Automation service\Hugo Carreon - BANCOS\Servicio Administrativo Pagos 2026.xlsx"
+PAGOS_FILE = r"C:\Users\matuk\Matuk Automation service\Matuk Automation Repository - Documentos\Reporte de horas 2022\Servicio Administrativo Pagos 2026.xlsx"
 OUTPUT_HTML = r"C:\Users\matuk\Desktop\MATUK Dashboard 2026\dashboard.html"
 
 
