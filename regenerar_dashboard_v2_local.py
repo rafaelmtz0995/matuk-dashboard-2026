@@ -53,20 +53,71 @@ def extraer_ingresos():
     wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
     ws = wb['Tabla ']
     rows = list(ws.iter_rows(values_only=True))
-    header = rows[1]
-    col_map = {}
-    for j,h in enumerate(header):
-        if isinstance(h,str):
-            k = h.strip().upper()
-            if k in MES_LARGO and MES_LARGO[k] not in col_map:
-                col_map[MES_LARGO[k]] = j
+    # Tabla tiene DOS secciones con headers distintos:
+    # Seccion 1 (ingresos): header fila 2 (idx 1) — B=ENERO, C=FEB, D=MAR...
+    # Seccion 2 (egresos con TRASPASO/EST FI): header fila 165 (idx 164) — C=ENERO, D=FEB...
+    # Leer ambas con su propio col_map para asignar correctamente cada mes
+
+    def make_col_map(header_row):
+        cm = {}
+        for j,h in enumerate(header_row):
+            if isinstance(h,str):
+                k = h.strip().upper()
+                if k in MES_LARGO and MES_LARGO[k] not in cm:
+                    cm[MES_LARGO[k]] = j
+        return cm
+
+    # Encontrar indices de ambos headers
+    sec1_idx = 1   # fila 2: ingresos (COB, MAGNIT, etc.)
+    sec2_idx = None
+    for i, row in enumerate(rows):
+        vals = [str(v).strip().upper() for v in row if v]
+        if 'ENERO' in vals and 'FEBRERO' in vals and 'SEPTIEMBRE' in vals:
+            if row[0] and 'HORAS' in str(row[0]).upper():
+                sec2_idx = i
+
+    col_map1 = make_col_map(rows[sec1_idx])
+    col_map2 = make_col_map(rows[sec2_idx]) if sec2_idx else {}
+
+    # Solo leer EST FI de la seccion 2 (egresos) — TRASPASO y VENTA ACTIVO FIJO ya estan en seccion 1 (ingresos)
+    EGRESOS_INGRESOS = {'EST FI'}
+
     clientes_mes = {m:{} for m in MESES}
     total_mes    = {m:0.0 for m in MESES}
-    for row in rows[2:]:
+
+    # Leer seccion 1 (ingresos) — parar en primer Total general
+    for row in rows[sec1_idx+1:]:
         nombre = str(row[0]).strip().upper() if row[0] else ""
-        # Detener en la primera fila "Total general" — todo lo que sigue son egresos
         if nombre == 'TOTAL GENERAL':
             break
+        if not nombre or nombre in EXCLUIR_ING: continue
+        for m,col in col_map1.items():
+            if col < len(row):
+                val = sf(row[col])
+                if val > 0:
+                    clientes_mes[m][nombre] = clientes_mes[m].get(nombre,0.0)+val
+                    total_mes[m] += val
+
+    # Leer seccion 2 (egresos) — solo tomar TRASPASO, EST FI y VENTA ACTIVO FIJO
+    if sec2_idx and col_map2:
+        for row in rows[sec2_idx+1:]:
+            nombre = str(row[0]).strip().upper() if row[0] else ""
+            if nombre == 'TOTAL GENERAL':
+                break
+            if nombre not in EGRESOS_INGRESOS: continue
+            for m,col in col_map2.items():
+                if col < len(row):
+                    val = sf(row[col])
+                    if val > 0:
+                        clientes_mes[m][nombre] = clientes_mes[m].get(nombre,0.0)+val
+                        total_mes[m] += val
+
+    # Bloque dummy para mantener compatibilidad con el resto del codigo
+    if False:
+        for row in rows[2:]:
+            nombre = str(row[0]).strip().upper() if row[0] else ""
+            if nombre == 'TOTAL GENERAL':
+                break
         if not nombre or nombre in EXCLUIR_ING: continue
         for m,col in col_map.items():
             if col < len(row):
