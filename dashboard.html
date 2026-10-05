@@ -315,7 +315,7 @@ footer strong{color:#fff}
 <!-- Fila: Clientes + Egresos -->
 <div class="rs-row" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
   <div class="rs-card">
-    <div class="rs-card-title">Top 8 Clientes — YTD</div>
+    <div class="rs-card-title">Clientes del mes</div>
     <div id="rs-clientes"></div>
   </div>
   <div class="rs-card">
@@ -2806,10 +2806,10 @@ function rsRender(){
   }
 
   // ====== SECCIÓN: TOP CLIENTES (con % share) ======
-  const colors8 = ['#1F5BA6','#059669','#E8A020','#DC2626','#7C3AED','#0891B2','#DB2777','#EA580C'];
+  const colors8 = ['#1F5BA6','#059669','#E8A020','#DC2626','#7C3AED','#0891B2','#DB2777','#EA580C','#64748B','#0D9488','#7C2D12','#1D4ED8','#9333EA','#B45309','#0F766E','#BE185D','#4D7C0F','#C2410C'];
   // Calcular totales de clientes según meses filtrados
   var cliFiltered = {};
-  var _cliExcluir = ['GASTOS','SEGUROS','COSTOS FIJOS','IMPUESTOS','PRESTAMO','TRASPASO','EST FI','VENTA ACTIVO FIJO','NÓMINA','NOMINA','COMISIONES','VIÁTICOS','VIATICOS','PTU'];
+  var _cliExcluir = ['GASTOS','SEGUROS','COSTOS FIJOS','IMPUESTOS','PRESTAMO','EST FI','VENTA ACTIVO FIJO','NÓMINA','NOMINA','COMISIONES','VIÁTICOS','VIATICOS','PTU'];
   months.forEach(function(m){
     if(FCLIENTES_MES[m]){
       Object.entries(FCLIENTES_MES[m]).forEach(function(e){
@@ -2820,7 +2820,7 @@ function rsRender(){
       });
     }
   });
-  const cliEntries = Object.entries(cliFiltered).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const cliEntries = Object.entries(cliFiltered).sort((a,b)=>b[1]-a[1]);
   const cliTotal = cliEntries.reduce((a,e)=>a+e[1],0);
   const cliMax = cliEntries.length ? cliEntries[0][1] : 1;
   var cliEl = document.getElementById('rs-clientes');
@@ -2835,14 +2835,14 @@ function rsRender(){
       }).filter(function(d){return d.v>0;});
       window._rsCLITT.push({title:e[0],total:fmtK(v),pct:p+'%',mdata:mData});
       return '<div class="rs-cli-row" data-ttidx="'+i+'" style="display:flex;align-items:center;gap:8px;margin-bottom:9px;cursor:default">'+
-        '<div style="width:8px;height:8px;border-radius:50%;background:'+colors8[i]+';flex-shrink:0"></div>'+
+        '<div style="width:8px;height:8px;border-radius:50%;background:'+colors8[i%colors8.length]+';flex-shrink:0"></div>'+
         '<div style="font-size:.66rem;color:#0D1F3C;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e[0]+'</div>'+
-        '<div style="width:80px;background:#F1F5F9;border-radius:3px;height:5px;flex-shrink:0"><div style="width:'+w+'%;height:100%;border-radius:3px;background:'+colors8[i]+'"></div></div>'+
+        '<div style="width:80px;background:#F1F5F9;border-radius:3px;height:5px;flex-shrink:0"><div style="width:'+w+'%;height:100%;border-radius:3px;background:'+colors8[i%colors8.length]+'"></div></div>'+
         '<div style="font-size:.65rem;color:#475569;min-width:70px;text-align:right;white-space:nowrap">'+fmtK(v)+' <span style="color:#CBD5E1">'+p+'%</span></div>'+
         '</div>';
     }).join('') +
     '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #F1F5F9;font-size:.62rem;color:#94A3B8">'+
-    'Total Top 8: '+fmtK(cliTotal)+' · Concentración: '+(ingTotal>0?pct(cliEntries.slice(0,3).reduce((a,e)=>a+e[1],0),ingTotal):'—')+' en top 3</div>';
+    'Total clientes: '+fmtK(cliTotal)+' · Concentración: '+(ingTotal>0?pct(cliEntries.slice(0,3).reduce((a,e)=>a+e[1],0),ingTotal):'—')+' en top 3</div>';
     rsBindTooltip(cliEl,'rs-cli-row',window._rsCLITT,'cli');
   }
 
