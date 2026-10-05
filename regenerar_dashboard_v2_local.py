@@ -646,9 +646,9 @@ def extraer_fegr_extra():
             for m in MESES:
                 result[m][key] = get_mx(row, m)
 
-    # gastos_op = Total GASTOS - COMISIONES - NOM ADMON (ya aparecen por separado en fdata/fegr_extra)
+    # gastos_op = Total GASTOS - COMISIONES - NOM ADMON - PTU (ya aparecen por separado en fdata/fegr_extra)
     for m in MESES:
-        result[m]['gastos_op'] = max(0, result[m]['gastos_op'] - result[m]['comisiones'] - result[m]['nom_admon'])
+        result[m]['gastos_op'] = max(0, result[m]['gastos_op'] - result[m]['comisiones'] - result[m]['nom_admon'] - result[m]['ptu'])
 
     # costos_otros = Total COSTOS - horas - viaticos
     for m in MESES:
