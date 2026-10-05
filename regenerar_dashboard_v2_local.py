@@ -964,6 +964,32 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append("egrCats (bloque no encontrado)")
 
+    # FIX FCLIENTES_MES DUPLICADO: eliminar la segunda declaracion (formato con comillas simples, solo hasta AGO)
+    # La segunda sobrescribe la primera (que tiene SEP) causando TOP 8 CLIENTES vacio en SEP
+    _fcli_positions = [m.start() for m in _re.finditer(r'var FCLIENTES_MES\s*=\s*\{', html)]
+    if len(_fcli_positions) >= 2:
+        _idx2 = _fcli_positions[1]
+        _chunk2 = html[_idx2:]
+        _depth2 = 0; _ci = _chunk2.find('{')
+        while _ci < len(_chunk2):
+            if _chunk2[_ci] == '{': _depth2 += 1
+            elif _chunk2[_ci] == '}':
+                _depth2 -= 1
+                if _depth2 == 0: break
+            _ci += 1
+        _end2 = _idx2 + _ci + 1
+        if html[_end2:_end2+2] in (';
+', '; '):
+            _end2 += 2
+        elif html[_end2] == ';':
+            _end2 += 1
+        html = html[:_idx2] + html[_end2:]
+        fixes_ok.append("FCLIENTES_MES duplicado eliminado (TOP8 SEP fix)")
+    elif len(_fcli_positions) == 1:
+        fixes_ok.append("FCLIENTES_MES OK (sin duplicado)")
+    else:
+        fixes_fail.append("FCLIENTES_MES (no encontrado)")
+
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
     return html
