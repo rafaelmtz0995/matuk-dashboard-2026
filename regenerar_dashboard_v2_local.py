@@ -567,12 +567,14 @@ def extraer_fegr_extra():
         if col < 0 or col >= len(row): return 0.0
         return sf(row[col])
 
-    result = {m: {'comisiones':0,'gastos_op':0,'seguros':0,'ptu':0,'prestamo':0,'estfi':0,
+    result = {m: {'comisiones':0,'gastos_op':0,'nom_admon':0,'seguros':0,'ptu':0,'prestamo':0,'estfi':0,
                   'costos_otros':0,'total_costos':0,'horas':0,'viat':0} for m in MESES}
 
     # Labels after .strip() (trailing spaces removed)
+    # NOTA: gastos_op = Total GASTOS - COMISIONES - NOM ADMON (para no duplicar con fdata)
     TARGETS = {
         'COMISIONES':       'comisiones',
+        'NOM ADMON':        'nom_admon',   # se resta de gastos_op al final
         'TOTAL GASTOS':     'gastos_op',
         'Total GASTOS':     'gastos_op',
         'SEGUROS':          'seguros',
@@ -600,6 +602,10 @@ def extraer_fegr_extra():
             found.add(label)
             for m in MESES:
                 result[m][key] = get_mx(row, m)
+
+    # gastos_op = Total GASTOS - COMISIONES - NOM ADMON (ya aparecen por separado en fdata/fegr_extra)
+    for m in MESES:
+        result[m]['gastos_op'] = max(0, result[m]['gastos_op'] - result[m]['comisiones'] - result[m]['nom_admon'])
 
     # costos_otros = Total COSTOS - horas - viaticos
     for m in MESES:
