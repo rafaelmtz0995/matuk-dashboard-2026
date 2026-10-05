@@ -14,9 +14,9 @@ except ImportError:
 HOME = os.path.expanduser("~")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-FLUJO_FILE = "/tmp/claude-0/-home-claude/c4894072-acb3-54ba-85b0-e097996734a9/scratchpad/Flujo de Caja 2026.xlsx"
-PAGOS_FILE = "/tmp/claude-0/-home-claude/c4894072-acb3-54ba-85b0-e097996734a9/scratchpad/Servicio Administrativo Pagos 2026.xlsx"
-OUTPUT_HTML = "/tmp/claude-0/-home-claude/c4894072-acb3-54ba-85b0-e097996734a9/scratchpad/dashboard.html"
+FLUJO_FILE = r"C:\Users\matuk\Matuk Automation service\Hugo Carreon - BANCOS\Flujo de Caja 2026.xlsx"
+PAGOS_FILE = r"C:\Users\matuk\Matuk Automation service\Hugo Carreon - BANCOS\Servicio Administrativo Pagos 2026.xlsx"
+OUTPUT_HTML = r"C:\Users\matuk\Desktop\MATUK Dashboard 2026\dashboard.html"
 
 
 print(f"FLUJO : {FLUJO_FILE}")
