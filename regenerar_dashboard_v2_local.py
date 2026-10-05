@@ -64,6 +64,9 @@ def extraer_ingresos():
     total_mes    = {m:0.0 for m in MESES}
     for row in rows[2:]:
         nombre = str(row[0]).strip().upper() if row[0] else ""
+        # Detener en la primera fila "Total general" — todo lo que sigue son egresos
+        if nombre == 'TOTAL GENERAL':
+            break
         if not nombre or nombre in EXCLUIR_ING: continue
         for m,col in col_map.items():
             if col < len(row):
