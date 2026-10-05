@@ -568,7 +568,7 @@ def extraer_fegr_extra():
         return sf(row[col])
 
     result = {m: {'comisiones':0,'gastos_op':0,'nom_admon':0,'seguros':0,'ptu':0,'prestamo':0,'estfi':0,
-                  'costos_otros':0,'total_costos':0,'horas':0,'viat':0} for m in MESES}
+                  'activo_fijo':0,'costos_otros':0,'total_costos':0,'horas':0,'viat':0} for m in MESES}
 
     # Labels after .strip() (trailing spaces removed)
     # NOTA: gastos_op = Total GASTOS - COMISIONES - NOM ADMON (para no duplicar con fdata)
@@ -580,22 +580,22 @@ def extraer_fegr_extra():
         'SEGUROS':          'seguros',
         'PTU':              'ptu',
         'ESTRATEGIA FISCAL':'estfi',
+        'ACTIVO FIJO':      'activo_fijo',
         'Total COSTOS':     'total_costos',
         'TOTAL COSTOS':     'total_costos',
         'HORAS':            'horas',
         'VIATICOS':         'viat',
     }
-    # PRESTAMO: hay 2 filas con ese label — tomar la primera (filas 121 y 144)
-    prestamo_found = False
+    # PRESTAMO: hay 2 filas — fila 121 (en COSTOS, siempre 0) y fila 144 (en GASTOS, tiene valor)
+    # Sumar ambas por si acaso (la primera siempre es 0)
     found = set()
 
     for i, row in enumerate(rows):
         label = str(row[0]).strip() if row[0] else ""
-        # PRESTAMO: primera ocurrencia que tenga label 'PRESTAMO' (row ~121)
-        if label == 'PRESTAMO' and not prestamo_found:
+        # PRESTAMO: sumar todas las ocurrencias (fila 121=0, fila 144=valor real)
+        if label == 'PRESTAMO':
             for m in MESES:
                 result[m]['prestamo'] += get_mx(row, m)
-            prestamo_found = True
             continue
         if label in TARGETS and label not in found:
             key = TARGETS[label]
@@ -620,8 +620,8 @@ def extraer_fegr_extra():
     final = {}
     for m in MESES:
         d = result[m]
-        if any(d[k] for k in ['comisiones','gastos_op','seguros','ptu','prestamo','estfi','costos_otros']):
-            final[m] = {k: int(round(d[k])) for k in ['costos_otros','gastos_op','seguros','comisiones','ptu','prestamo','estfi']}
+        if any(d[k] for k in ['comisiones','gastos_op','seguros','ptu','prestamo','estfi','costos_otros','activo_fijo']):
+            final[m] = {k: int(round(d[k])) for k in ['costos_otros','gastos_op','seguros','comisiones','ptu','prestamo','estfi','activo_fijo']}
 
     print(f"    Meses con FEGR_EXTRA: {list(final.keys())}")
     if 'SEP' in final:
@@ -934,6 +934,17 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         fixes_ok.append("COSTOS_OTROS_USD (ya OK)")
 
     print("  FIXES OK:", ", ".join(fixes_ok))
+    # FIX ACTIVO FIJO: agregar al desglose de egresos en Resumen (egrCats rs-egresos)
+    OLD_ESTFI = "{k:'estfi',      label:'Est. Fiscal',     color:'#EF4444',src:'extra'},"
+    NEW_ESTFI = "{k:'estfi',      label:'Est. Fiscal',     color:'#EF4444',src:'extra'},\n    {k:'activo_fijo', label:'Activo Fijo',      color:'#6366F1',src:'extra'},"
+    if OLD_ESTFI in html:
+        html = html.replace(OLD_ESTFI, NEW_ESTFI, 1)
+        fixes_ok.append("Activo Fijo en desglose egresos Resumen")
+    elif 'activo_fijo' in html:
+        fixes_ok.append("Activo Fijo en desglose egresos (ya OK)")
+    else:
+        fixes_fail.append("Activo Fijo en desglose egresos")
+
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
     return html
