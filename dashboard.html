@@ -567,6 +567,26 @@ footer strong{color:#fff}
 
 
 
+
+<!-- ===================== VIEW FLUJO DE CAJA ===================== -->
+</div>
+
+<table>
+    <thead>
+      <tr>
+        <th style="min-width:200px">Mes</th>
+        <th class="num">Costo Hrs USD</th>
+        <th class="num">PERDIEM USD</th>
+        <th class="num">Otros Costos USD</th>
+        <th class="num">Costo Total USD</th>
+        <th class="num">Costo MXN</th>
+        <th style="width:32px"></th>
+      </tr>
+    </thead>
+    <tbody id="ctbody"></tbody>
+    <tfoot id="ctfoot"></tfoot>
+  </table>
+
 <div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
 
   <!-- GRAFICA 1: Tendencia Mensual vs Acumulado -->
@@ -587,24 +607,7 @@ footer strong{color:#fff}
 
 </div>
 
-<!-- ===================== VIEW FLUJO DE CAJA ===================== -->
-</div>
 
-<table>
-    <thead>
-      <tr>
-        <th style="min-width:200px">Mes</th>
-        <th class="num">Costo Hrs USD</th>
-        <th class="num">PERDIEM USD</th>
-        <th class="num">Otros Costos USD</th>
-        <th class="num">Costo Total USD</th>
-        <th class="num">Costo MXN</th>
-        <th style="width:32px"></th>
-      </tr>
-    </thead>
-    <tbody id="ctbody"></tbody>
-    <tfoot id="ctfoot"></tfoot>
-  </table>
 
 
 
@@ -3289,26 +3292,8 @@ function rsRender(){
 
 
 
-<div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
-
-  <!-- GRAFICA 1: Tendencia Mensual vs Acumulado -->
-  <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">
-    <div style="font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px">
-      <span style="color:#F59E0B;margin-right:6px">●</span>Tendencia Mensual vs Acumulado
-    </div>
-    <canvas id="costos-tendencia-chart" height="110"></canvas>
-  </div>
-
-  <!-- GRAFICA 2: Total Costos por Mes -->
-  <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">
-    <div style="font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px">
-      <span style="color:#1F5BA6;margin-right:6px">●</span>Total de Costos por Mes (USD)
-    </div>
-    <canvas id="costos-barras-chart" height="110"></canvas>
-  </div>
-
-</div>
-
+<div style="
+  
 <!-- ===================== VIEW FLUJO DE CAJA ===================== -->
 </div>
 
@@ -3328,13 +3313,7 @@ function rsRender(){
     <tfoot id="ctfoot"></tfoot>
   </table>
 
-
-
-
-<!-- HISTORIAL PASIVOS SECTION -->
-<div class="section" style="margin:16px 0 0">
-  <div class="section-label">03 / HISTORIAL DE PASIVOS</div>
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
     <h2 style="margin:0;font-size:1.1rem;color:var(--navy);font-weight:700">Pasivos por Mes — Horas Pendientes</h2>
     <span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:rgba(5,150,105,.1);color:#059669;padding:3px 10px;border-radius:20px">⚡ Cierre vivo: sep-26</span>
   </div>
@@ -3431,6 +3410,36 @@ function rsRender(){
           </tr>
 </tbody>
       </table>
+
+display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
+
+  <!-- GRAFICA 1: Tendencia Mensual vs Acumulado -->
+  <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">
+    <div style="font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px">
+      <span style="color:#F59E0B;margin-right:6px">●</span>Tendencia Mensual vs Acumulado
+    </div>
+    <canvas id="costos-tendencia-chart" height="110"></canvas>
+  </div>
+
+  <!-- GRAFICA 2: Total Costos por Mes -->
+  <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">
+    <div style="font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px">
+      <span style="color:#1F5BA6;margin-right:6px">●</span>Total de Costos por Mes (USD)
+    </div>
+    <canvas id="costos-barras-chart" height="110"></canvas>
+  </div>
+
+</div>
+
+
+
+
+
+
+<!-- HISTORIAL PASIVOS SECTION -->
+<div class="section" style="margin:16px 0 0">
+  <div class="section-label">03 / HISTORIAL DE PASIVOS</div>
+
     </div>
   </div>
 
