@@ -817,23 +817,37 @@ function buildCostosCharts(){
             fixes_ok.append("Canvas graficas costos insertado antes de pasivos")
         else:
             fixes_fail.append("Canvas graficas costos (HISTORIAL PASIVOS anchor no encontrado)")
-    elif hist_pos5 > 0 and canvas_pos5 > hist_pos5:
-        # Graficas estan DESPUES de pasivos — extraer y mover antes de pasivos
-        flex_start = html.rfind('<div style="display:flex', 0, canvas_pos5)
-        barras_pos = html.find('costos-barras-chart', canvas_pos5)
-        flex_end = html.find('</div>', barras_pos)
-        flex_end = html.find('</div>', flex_end+1)
-        flex_end = html.find('</div>', flex_end+1)
-        flex_end += len('</div>')
-        if flex_start > 0 and flex_end > flex_start:
-            canvas_block = html[flex_start:flex_end]
-            html = html[:flex_start] + html[flex_end:]
-            html = html.replace(HIST_ANCHOR5, canvas_block + '\n\n' + HIST_ANCHOR5, 1)
-            fixes_ok.append("Canvas graficas costos movido: tabla->graficas->pasivos")
+    elif hist_pos5 > 0:
+        # Verificar posicion: canvas debe estar DESPUES de la tabla Y ANTES de pasivos
+        ctbody_pos5 = html.find('<tbody id="ctbody">')
+        tabla_end5 = html.find('</table>', ctbody_pos5) + len('</table>') if ctbody_pos5 > 0 else 0
+        correct_pos = (tabla_end5 > 0 and tabla_end5 < canvas_pos5 < hist_pos5)
+        if correct_pos:
+            fixes_ok.append("Canvas graficas costos (ya OK — tabla->graficas->pasivos)")
         else:
-            fixes_fail.append("Canvas graficas costos (no se pudo extraer bloque)")
-    elif hist_pos5 > 0 and canvas_pos5 < hist_pos5:
-        fixes_ok.append("Canvas graficas costos (ya OK — antes de pasivos)")
+            # Extraer bloque canvas (el div flex que contiene ambas graficas)
+            flex_start = html.rfind('<div style="display:flex', 0, canvas_pos5)
+            barras_pos = html.find('costos-barras-chart', canvas_pos5)
+            flex_end = html.find('</div>', barras_pos)
+            flex_end = html.find('</div>', flex_end+1)
+            flex_end = html.find('</div>', flex_end+1)
+            flex_end += len('</div>')
+            if flex_start > 0 and flex_end > flex_start:
+                canvas_block = html[flex_start:flex_end]
+                html = html[:flex_start] + html[flex_end:]
+                # Recalcular posicion de tabla despues de extraccion
+                ctbody_pos5b = html.find('<tbody id="ctbody">')
+                tabla_end5b = html.find('</table>', ctbody_pos5b) + len('</table>') if ctbody_pos5b > 0 else -1
+                if tabla_end5b > 0:
+                    # Insertar inmediatamente despues de </table> de costos, antes de pasivos
+                    html = html[:tabla_end5b] + '\n\n' + canvas_block + '\n' + html[tabla_end5b:]
+                    fixes_ok.append("Canvas graficas costos reposicionado: tabla->graficas->pasivos")
+                else:
+                    # fallback: insertar antes de pasivos
+                    html = html.replace(HIST_ANCHOR5, canvas_block + '\n\n' + HIST_ANCHOR5, 1)
+                    fixes_ok.append("Canvas graficas costos movido antes de pasivos (fallback)")
+            else:
+                fixes_fail.append("Canvas graficas costos (no se pudo extraer bloque)")
     else:
         fixes_ok.append("Canvas graficas costos (ya OK)")
 
