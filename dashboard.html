@@ -1079,7 +1079,16 @@ footer strong{color:#fff}
     </div>
   </div>
 
-
+<script>
+function showRecursoMes(mes,btn){
+  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
+  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
+  var id=mes.replace('-','');
+  var el=document.getElementById('pasivo-recurso-'+id);
+  if(el)el.style.display='block';
+  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
+}
+</script>
 <!-- END HISTORIAL PASIVOS -->
 </div><!-- /view-costos -->
 
@@ -2357,15 +2366,6 @@ window.addEventListener('load', function(){
   buildCostosTable();
   showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
 });
-
-function showRecursoMes(mes,btn){
-  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
-  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
-  var id=mes.replace('-','');
-  var el=document.getElementById('pasivo-recurso-'+id);
-  if(el)el.style.display='block';
-  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
-}
 </script>
 
 <!-- xlsx library removed -->
@@ -3806,7 +3806,152 @@ display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
               <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--navy)">Neto USD</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">ARTURO IBARRA MARTINEZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">252.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$8,820</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$153,082</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$151,432</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">CANDIDO EZEQUIEL CEDILLO ESPINOSA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">173.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$6,055</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$105,092</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$103,959</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">CARLOS ALFREDO CASTAÑEDA PEREZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">43.5</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$1,000</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$17,365</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$15,581</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">CARLOS EDUARDO PEÑA YAÑEZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">80.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$2,000</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$34,712</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$34,712</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">CARLOS GILBERTO LUPERCIO MACIAS</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">111.8</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$3,129</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$54,308</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$53,722</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">CRISTIAN DE JESUS CONSTANTINO MUÑOZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">74.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$2,368</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$41,099</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$36,877</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">DANIEL ROMANO VARELA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">209.5</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$7,332</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$127,264</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$114,190</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">EFREN MARTINEZ BAUTISTA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">60.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$2,280</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$39,572</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$39,572</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">EMILIANO HERNANDEZ GARCIA <span style="font-size:.6rem;background:#DBEAFE;color:#1D4ED8;padding:1px 5px;border-radius:4px;font-weight:700">USD</span></td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">204.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$9,180</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">—</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">—</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$9,180</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">EMILIO HERNANDEZ SUAREZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">40.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$1,080</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$18,745</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$18,543</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">ERICK GARCIA LOPEZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">142.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$4,970</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$86,260</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$86,260</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">FELIPE MUÑOZ TREJO</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">80.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$2,160</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$37,489</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$37,085</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">JOSE LUIS CEDILLO ESPINOSA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">109.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$2,725</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$47,296</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$46,786</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">JOSE MANUEL TLAPAPAL PEREZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">10.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$250</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$4,339</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$4,339</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">MANUEL ALEJANDRO ZARATE PAREDES</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">114.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$2,850</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$49,465</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$49,465</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">OSVALDO GUILLERMO RIVERA ROBLES</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">58.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$3,364</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$58,386</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$47,984</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">RICARDO OSVALDO JUAREZ SANTANA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">97.5</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$3,900</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$67,689</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$60,735</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;text-align:left;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">TOTAL</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">1,858.2</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#059669;border-top:2px solid #E2E8F0">$63,464</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">$942,164</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">$901,245</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#059669;border-top:2px solid #E2E8F0">$9,180</td>
+          </tr>
+          </tbody>
         </table>
       </div>
     </div>
@@ -3823,7 +3968,88 @@ display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
               <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--navy)">Neto USD</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">ADRIAN ISRAEL SALAS GRACIA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">88.7</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$3,103</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$52,891</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$47,458</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">ARTURO IBARRA MARTINEZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">217.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$7,595</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$129,439</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$128,044</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">CARLOS EDUARDO PEÑA YAÑEZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">80.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$2,000</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$34,085</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$34,085</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">DANIEL ROMANO VARELA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">140.5</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$5,114</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$87,165</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$78,210</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">EMILIANO HERNANDEZ GARCIA <span style="font-size:.6rem;background:#DBEAFE;color:#1D4ED8;padding:1px 5px;border-radius:4px;font-weight:700">USD</span></td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">206.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$9,270</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">—</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">—</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$9,270</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">JOSE LUIS CEDILLO ESPINOSA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">7.5</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$188</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$3,196</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$3,161</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">JUAN MANUEL GELACIO VALDEZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">113.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$3,390</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$57,775</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$57,152</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">MICHEL IVAN TORRES ARENAS</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">67.5</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$1,688</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$28,760</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$28,450</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">RICARDO OSVALDO JUAREZ SANTANA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">190.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$7,600</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$129,525</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$116,218</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;text-align:left;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">TOTAL</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">1,110.2</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#059669;border-top:2px solid #E2E8F0">$39,948</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">$522,835</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">$492,779</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#059669;border-top:2px solid #E2E8F0">$9,270</td>
+          </tr>
+          </tbody>
         </table>
       </div>
     </div>
@@ -3840,13 +4066,95 @@ display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
               <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--navy)">Neto USD</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">ADRIAN ISRAEL SALAS GRACIA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">238.4</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$8,346</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$150,816</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$135,323</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">ARTURO IBARRA MARTINEZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">190.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$6,650</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$120,172</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$118,877</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">CANDIDO EZEQUIEL CEDILLO ESPINOSA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">162.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$5,994</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$108,318</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$107,150</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">CARLOS EDUARDO PEÑA YAÑEZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">72.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$1,800</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$32,528</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$32,528</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">DANIEL ROMANO VARELA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">220.5</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$8,158</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$147,432</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$132,287</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">EMILIANO HERNANDEZ GARCIA <span style="font-size:.6rem;background:#DBEAFE;color:#1D4ED8;padding:1px 5px;border-radius:4px;font-weight:700">USD</span></td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">362.0</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$16,290</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">—</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">—</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$16,290</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">PABLO FRANCISCO RAMIREZ RAMIREZ</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">67.2</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$1,344</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$24,287</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$24,287</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 14px;text-align:left;border-bottom:1px solid #F1F5F9;color:#1E293B">RICARDO OSVALDO JUAREZ SANTANA</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">91.5</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">$3,660</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$66,140</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#1E293B">$59,345</td>
+            <td style="padding:9px 14px;text-align:right;border-bottom:1px solid #F1F5F9;color:#059669;font-weight:600">—</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 14px;text-align:left;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">TOTAL</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">1,403.7</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#059669;border-top:2px solid #E2E8F0">$52,242</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">$649,693</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#1E293B;border-top:2px solid #E2E8F0">$609,797</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;background:#F8FAFC;color:#059669;border-top:2px solid #E2E8F0">$16,290</td>
+          </tr>
+          </tbody>
         </table>
       </div>
     </div>
   </div>
 
-
+<script>
+function showRecursoMes(mes,btn){
+  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
+  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
+  var id=mes.replace('-','');
+  var el=document.getElementById('pasivo-recurso-'+id);
+  if(el)el.style.display='block';
+  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
+}
+</script>
 <!-- END HISTORIAL PASIVOS -->
 </div><!-- /view-costos -->
 
@@ -4776,7 +5084,7 @@ function showTab(t){
 }
 
 // PASIVOS DATA
-var PASIVOS = {"jul-26": [{"c": "SW NORTH AMERICA,INC", "p": 6, "h": 523.5, "usd": 17262.5, "mxn": 299611.4, "neto_mxn": 296950.02, "neto_usd": 0}, {"c": "MATUK LLC", "p": 3, "h": 576.0, "usd": 21080.0, "mxn": 206538.78, "neto_mxn": 204687.2, "neto_usd": 9180.0}, {"c": "GENERAL MOTORS MX", "p": 2, "h": 206.5, "usd": 6625.0, "mxn": 114984.82, "neto_mxn": 107521.45, "neto_usd": 0}, {"c": "PARI", "p": 1, "h": 185.0, "usd": 6475.0, "mxn": 112381.4, "neto_mxn": 100836.43, "neto_usd": 0}, {"c": "ATS LIFE SCIENCE", "p": 1, "h": 111.75, "usd": 3129.0, "mxn": 54307.55, "neto_mxn": 53722.34, "neto_usd": 0}, {"c": "MEHNERT USA, LLC.", "p": 1, "h": 74.0, "usd": 2368.0, "mxn": 41099.48, "neto_mxn": 36877.32, "neto_usd": 0}, {"c": "MOVEATECH", "p": 1, "h": 58.0, "usd": 3364.0, "mxn": 58386.26, "neto_mxn": 47984.09, "neto_usd": 0}, {"c": "HALSTON SOFTWARE", "p": 1, "h": 80.0, "usd": 2160.0, "mxn": 37489.39, "neto_mxn": 37085.41, "neto_usd": 0}, {"c": "COMAU AUTOMATIZACION", "p": 1, "h": 43.5, "usd": 1000.5, "mxn": 17364.88, "neto_mxn": 15580.98, "neto_usd": 0}], "ago-26": [{"c": "ATS LIFE SCIENCE", "p": 1, "h": 113.0, "usd": 3390.0, "mxn": 57774.75, "neto_mxn": 57152.18, "neto_usd": 0}, {"c": "GENERAL MOTORS LLC", "p": 1, "h": 95.0, "usd": 3800.0, "mxn": 64762.26, "neto_mxn": 58109.22, "neto_usd": 0}, {"c": "GENERAL MOTORS MX", "p": 3, "h": 170.0, "usd": 5675.0, "mxn": 96717.32, "neto_mxn": 89719.94, "neto_usd": 0}, {"c": "MATUK LLC", "p": 3, "h": 503.0, "usd": 18865.0, "mxn": 163524.71, "neto_mxn": 162129.89, "neto_usd": 9270.0}, {"c": "PARI", "p": 1, "h": 42.0, "usd": 1470.0, "mxn": 25052.77, "neto_mxn": 22479.09, "neto_usd": 0}, {"c": "SW NORTH AMERICA,INC", "p": 1, "h": 98.5, "usd": 3644.5, "mxn": 62112.12, "neto_mxn": 55731.33, "neto_usd": 0}, {"c": "ZT GROUP", "p": 1, "h": 88.67, "usd": 3103.45, "mxn": 52891.17, "neto_mxn": 47457.65, "neto_usd": 0}], "sep-26": [{"c": "COMAU LLC", "p": 1, "h": 9.5, "usd": 380.0, "mxn": 6866.98, "neto_mxn": 6161.53, "neto_usd": 0}, {"c": "GENERAL MOTORS LLC", "p": 1, "h": 76.0, "usd": 3040.0, "mxn": 54935.84, "neto_mxn": 49292.27, "neto_usd": 0}, {"c": "GENERAL MOTORS MX", "p": 3, "h": 173.2, "usd": 5084.0, "mxn": 91872.96, "neto_mxn": 90745.86, "neto_usd": 0}, {"c": "MATUK LLC", "p": 4, "h": 686.0, "usd": 27234.0, "mxn": 197769.02, "neto_mxn": 195988.41, "neto_usd": 16290.0}, {"c": "SW NORTH AMERICA,INC", "p": 1, "h": 220.5, "usd": 8158.5, "mxn": 147432.25, "neto_mxn": 132286.51, "neto_usd": 0}, {"c": "ZT GROUP", "p": 1, "h": 238.45, "usd": 8345.75, "mxn": 150816.05, "neto_mxn": 135322.69, "neto_usd": 0}]};
+const PASIVOS = {"jul-26": [{"c": "SW NORTH AMERICA,INC", "p": 6, "h": 523.5, "usd": 17262.5, "mxn": 299611.4, "neto_mxn": 296950.02, "neto_usd": 0}, {"c": "MATUK LLC", "p": 3, "h": 576.0, "usd": 21080.0, "mxn": 206538.78, "neto_mxn": 204687.2, "neto_usd": 9180.0}, {"c": "GENERAL MOTORS MX", "p": 2, "h": 206.5, "usd": 6625.0, "mxn": 114984.82, "neto_mxn": 107521.45, "neto_usd": 0}, {"c": "PARI", "p": 1, "h": 185.0, "usd": 6475.0, "mxn": 112381.4, "neto_mxn": 100836.43, "neto_usd": 0}, {"c": "ATS LIFE SCIENCE", "p": 1, "h": 111.75, "usd": 3129.0, "mxn": 54307.55, "neto_mxn": 53722.34, "neto_usd": 0}, {"c": "MEHNERT USA, LLC.", "p": 1, "h": 74.0, "usd": 2368.0, "mxn": 41099.48, "neto_mxn": 36877.32, "neto_usd": 0}, {"c": "MOVEATECH", "p": 1, "h": 58.0, "usd": 3364.0, "mxn": 58386.26, "neto_mxn": 47984.09, "neto_usd": 0}, {"c": "HALSTON SOFTWARE", "p": 1, "h": 80.0, "usd": 2160.0, "mxn": 37489.39, "neto_mxn": 37085.41, "neto_usd": 0}, {"c": "COMAU AUTOMATIZACION", "p": 1, "h": 43.5, "usd": 1000.5, "mxn": 17364.88, "neto_mxn": 15580.98, "neto_usd": 0}], "ago-26": [{"c": "ATS LIFE SCIENCE", "p": 1, "h": 113.0, "usd": 3390.0, "mxn": 57774.75, "neto_mxn": 57152.18, "neto_usd": 0}, {"c": "GENERAL MOTORS LLC", "p": 1, "h": 95.0, "usd": 3800.0, "mxn": 64762.26, "neto_mxn": 58109.22, "neto_usd": 0}, {"c": "GENERAL MOTORS MX", "p": 3, "h": 170.0, "usd": 5675.0, "mxn": 96717.32, "neto_mxn": 89719.94, "neto_usd": 0}, {"c": "MATUK LLC", "p": 3, "h": 503.0, "usd": 18865.0, "mxn": 163524.71, "neto_mxn": 162129.89, "neto_usd": 9270.0}, {"c": "PARI", "p": 1, "h": 42.0, "usd": 1470.0, "mxn": 25052.77, "neto_mxn": 22479.09, "neto_usd": 0}, {"c": "SW NORTH AMERICA,INC", "p": 1, "h": 98.5, "usd": 3644.5, "mxn": 62112.12, "neto_mxn": 55731.33, "neto_usd": 0}, {"c": "ZT GROUP", "p": 1, "h": 88.67, "usd": 3103.45, "mxn": 52891.17, "neto_mxn": 47457.65, "neto_usd": 0}], "sep-26": [{"c": "COMAU LLC", "p": 1, "h": 9.5, "usd": 380.0, "mxn": 6866.98, "neto_mxn": 6161.53, "neto_usd": 0}, {"c": "GENERAL MOTORS LLC", "p": 1, "h": 76.0, "usd": 3040.0, "mxn": 54935.84, "neto_mxn": 49292.27, "neto_usd": 0}, {"c": "GENERAL MOTORS MX", "p": 3, "h": 173.2, "usd": 5084.0, "mxn": 91872.96, "neto_mxn": 90745.86, "neto_usd": 0}, {"c": "MATUK LLC", "p": 4, "h": 686.0, "usd": 27234.0, "mxn": 197769.02, "neto_mxn": 195988.41, "neto_usd": 16290.0}, {"c": "SW NORTH AMERICA,INC", "p": 1, "h": 220.5, "usd": 8158.5, "mxn": 147432.25, "neto_mxn": 132286.51, "neto_usd": 0}, {"c": "ZT GROUP", "p": 1, "h": 238.45, "usd": 8345.75, "mxn": 150816.05, "neto_mxn": 135322.69, "neto_usd": 0}]};
 
 function showPasivoMes(mes, btn){
   // Update button styles
@@ -5124,15 +5432,6 @@ window.addEventListener('load', function(){
   buildCostosTable();
   showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
 });
-
-function showRecursoMes(mes,btn){
-  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
-  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
-  var id=mes.replace('-','');
-  var el=document.getElementById('pasivo-recurso-'+id);
-  if(el)el.style.display='block';
-  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
-}
 </script>
 
 <!-- xlsx library removed -->

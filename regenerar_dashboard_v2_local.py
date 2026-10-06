@@ -1144,29 +1144,38 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
 
 
 
-    # FIX DETALLE-RECURSO-2: vaciar tbodys de la segunda instancia del DETALLE POR RECURSO
-    # La segunda instancia (dentro del script sin cerrar) tiene HTML estatico que rompe Chrome
-    # Al vaciar sus tbodys, el bloque dentro del script se reduce a ~60 lineas (vs 362)
-    # La primera instancia (fuera del script) conserva sus datos estaticos
-    import re as _re2
-    _DR_MARKER = '<!-- DETALLE POR RECURSO -->'
+    # FIX DETALLE-RECURSO-2: eliminar COMPLETAMENTE la segunda instancia del DETALLE POR RECURSO
+    # La segunda instancia (dentro del bloque del script sin cerrar en Chrome) tiene 64 lineas de HTML
+    # que exceden el threshold de Chrome (~702 lineas). La solucion correcta es eliminarla por completo.
+    # La primera instancia (fuera del script, en L721) conserva sus datos estaticos y es la que se muestra.
+    # Eliminar la segunda instancia reduce el conteo de ~735 a ~672 lineas (bien por debajo del umbral de 702).
+    _DR_MARKER = '  <!-- DETALLE POR RECURSO -->'
+    _DR_MARKER2 = '<!-- DETALLE POR RECURSO -->'  # variante sin indentacion
     _idx1 = html.find(_DR_MARKER)
-    _idx2 = html.find(_DR_MARKER, _idx1+1) if _idx1 >= 0 else -1
+    if _idx1 < 0:
+        _idx1 = html.find(_DR_MARKER2)
+    _idx2 = -1
+    if _idx1 >= 0:
+        # Buscar segunda instancia con ambas variantes
+        _idx2a = html.find(_DR_MARKER, _idx1+1)
+        _idx2b = html.find(_DR_MARKER2, _idx1+1)
+        if _idx2a >= 0 and _idx2b >= 0:
+            _idx2 = min(_idx2a, _idx2b)
+        elif _idx2a >= 0:
+            _idx2 = _idx2a
+        elif _idx2b >= 0:
+            _idx2 = _idx2b
     if _idx2 >= 0:
         _end_marker = '<!-- END HISTORIAL PASIVOS -->'
         _idx_end = html.find(_end_marker, _idx2)
         if _idx_end >= 0:
-            _bloque2 = html[_idx2:_idx_end]
-            _bloque2_limpio = _re2.sub(r'<tbody>[\s\S]*?</tbody>', '<tbody></tbody>', _bloque2)
-            if _bloque2 != _bloque2_limpio:
-                html = html[:_idx2] + _bloque2_limpio + html[_idx_end:]
-                fixes_ok.append('DETALLE-RECURSO-2 tbodys vaciados')
-            else:
-                fixes_ok.append('DETALLE-RECURSO-2 tbodys (ya OK)')
+            # Eliminar desde la segunda instancia hasta END_MARKER (sin incluir END_MARKER)
+            html = html[:_idx2] + html[_idx_end:]
+            fixes_ok.append('DETALLE-RECURSO-2 eliminado')
         else:
             fixes_fail.append('DETALLE-RECURSO-2 (END marker no encontrado)')
     else:
-        fixes_fail.append('DETALLE-RECURSO-2 (segunda instancia no encontrada)')
+        fixes_ok.append('DETALLE-RECURSO-2 (segunda instancia ya no existe - OK)')
 
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
