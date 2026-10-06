@@ -805,22 +805,20 @@ function buildCostosCharts(){
         </div>
       </div>
 """
-    TABLE_ANCHOR5 = '<tbody id="ctbody">'
+    HIST_ANCHOR5 = '<!-- HISTORIAL PASIVOS SECTION -->'
     import re as _re5
     canvas_present5 = 'costos-tendencia-chart' in html
     canvas_pos5 = html.find('costos-tendencia-chart')
-    table_pos5 = html.find(TABLE_ANCHOR5)
+    hist_pos5 = html.find(HIST_ANCHOR5)
     if not canvas_present5:
-        if TABLE_ANCHOR5 in html:
-            t_open = html.rfind('<table>', 0, table_pos5)
-            if t_open > 0:
-                html = html[:t_open] + CANVAS + html[t_open:]
-                fixes_ok.append("Canvas graficas costos insertado antes de tabla")
-            else:
-                fixes_fail.append("Canvas graficas costos (no se encontro tabla)")
+        # Insertar justo antes de HISTORIAL PASIVOS
+        if HIST_ANCHOR5 in html:
+            html = html.replace(HIST_ANCHOR5, CANVAS + '\n' + HIST_ANCHOR5, 1)
+            fixes_ok.append("Canvas graficas costos insertado antes de pasivos")
         else:
-            fixes_fail.append("Canvas graficas costos (ctbody no encontrado)")
-    elif canvas_pos5 > table_pos5:
+            fixes_fail.append("Canvas graficas costos (HISTORIAL PASIVOS anchor no encontrado)")
+    elif hist_pos5 > 0 and canvas_pos5 > hist_pos5:
+        # Graficas estan DESPUES de pasivos — extraer y mover antes de pasivos
         flex_start = html.rfind('<div style="display:flex', 0, canvas_pos5)
         barras_pos = html.find('costos-barras-chart', canvas_pos5)
         flex_end = html.find('</div>', barras_pos)
@@ -830,15 +828,12 @@ function buildCostosCharts(){
         if flex_start > 0 and flex_end > flex_start:
             canvas_block = html[flex_start:flex_end]
             html = html[:flex_start] + html[flex_end:]
-            table_pos5b = html.find(TABLE_ANCHOR5)
-            t_open = html.rfind('<table>', 0, table_pos5b)
-            if t_open > 0:
-                html = html[:t_open] + '\n' + canvas_block + '\n\n' + html[t_open:]
-                fixes_ok.append("Canvas graficas costos movido antes de tabla")
-            else:
-                fixes_fail.append("Canvas graficas costos (movido pero no tabla)")
+            html = html.replace(HIST_ANCHOR5, canvas_block + '\n\n' + HIST_ANCHOR5, 1)
+            fixes_ok.append("Canvas graficas costos movido: tabla->graficas->pasivos")
         else:
             fixes_fail.append("Canvas graficas costos (no se pudo extraer bloque)")
+    elif hist_pos5 > 0 and canvas_pos5 < hist_pos5:
+        fixes_ok.append("Canvas graficas costos (ya OK — antes de pasivos)")
     else:
         fixes_ok.append("Canvas graficas costos (ya OK)")
 
