@@ -1079,16 +1079,7 @@ footer strong{color:#fff}
     </div>
   </div>
 
-<script>
-function showRecursoMes(mes,btn){
-  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
-  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
-  var id=mes.replace('-','');
-  var el=document.getElementById('pasivo-recurso-'+id);
-  if(el)el.style.display='block';
-  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
-}
-</script>
+
 <!-- END HISTORIAL PASIVOS -->
 </div><!-- /view-costos -->
 
@@ -2366,6 +2357,15 @@ window.addEventListener('load', function(){
   buildCostosTable();
   showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
 });
+
+function showRecursoMes(mes,btn){
+  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
+  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
+  var id=mes.replace('-','');
+  var el=document.getElementById('pasivo-recurso-'+id);
+  if(el)el.style.display='block';
+  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
+}
 </script>
 
 <!-- xlsx library removed -->
@@ -4145,16 +4145,7 @@ display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
     </div>
   </div>
 
-<script>
-function showRecursoMes(mes,btn){
-  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
-  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
-  var id=mes.replace('-','');
-  var el=document.getElementById('pasivo-recurso-'+id);
-  if(el)el.style.display='block';
-  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
-}
-</script>
+
 <!-- END HISTORIAL PASIVOS -->
 </div><!-- /view-costos -->
 
@@ -5432,6 +5423,15 @@ window.addEventListener('load', function(){
   buildCostosTable();
   showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
 });
+
+function showRecursoMes(mes,btn){
+  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
+  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
+  var id=mes.replace('-','');
+  var el=document.getElementById('pasivo-recurso-'+id);
+  if(el)el.style.display='block';
+  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
+}
 </script>
 
 <!-- xlsx library removed -->
