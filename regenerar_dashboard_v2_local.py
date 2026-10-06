@@ -1144,6 +1144,21 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
 
 
 
+    # FIX PASIVOS-CONST-2: cambiar segunda declaracion 'const PASIVOS' a 'var PASIVOS'
+    # La regeneracion inserta 'const PASIVOS' dos veces (una por cada bloque duplicado).
+    # En el mismo scope JS no se puede declarar const dos veces → SyntaxError L4xxx.
+    # La solucion es cambiar la segunda instancia a 'var' que si permite redeclaracion.
+    _pc_idx1 = html.find('const PASIVOS')
+    if _pc_idx1 >= 0:
+        _pc_idx2 = html.find('const PASIVOS', _pc_idx1 + 1)
+        if _pc_idx2 >= 0:
+            html = html[:_pc_idx2] + 'var PASIVOS' + html[_pc_idx2 + len('const PASIVOS'):]
+            fixes_ok.append('PASIVOS-CONST-2 corregido (const→var)')
+        else:
+            fixes_ok.append('PASIVOS-CONST-2 (solo una instancia - OK)')
+    else:
+        fixes_fail.append('PASIVOS-CONST-2 (const PASIVOS no encontrado)')
+
     # FIX HISTORIAL-PASIVOS-2: eliminar COMPLETAMENTE la segunda seccion de HISTORIAL PASIVOS
     # La segunda instancia (dentro del bloque del return ' sin cerrar en Chrome) tiene ~375 lineas de HTML
     # que son la causa raiz del SyntaxError L3295. El threshold de Chrome es ~702 lineas.
