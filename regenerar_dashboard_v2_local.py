@@ -1143,6 +1143,31 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
 
 
 
+
+    # FIX DETALLE-RECURSO-2: vaciar tbodys de la segunda instancia del DETALLE POR RECURSO
+    # La segunda instancia (dentro del script sin cerrar) tiene HTML estatico que rompe Chrome
+    # Al vaciar sus tbodys, el bloque dentro del script se reduce a ~60 lineas (vs 362)
+    # La primera instancia (fuera del script) conserva sus datos estaticos
+    import re as _re2
+    _DR_MARKER = '<!-- DETALLE POR RECURSO -->'
+    _idx1 = html.find(_DR_MARKER)
+    _idx2 = html.find(_DR_MARKER, _idx1+1) if _idx1 >= 0 else -1
+    if _idx2 >= 0:
+        _end_marker = '<!-- END HISTORIAL PASIVOS -->'
+        _idx_end = html.find(_end_marker, _idx2)
+        if _idx_end >= 0:
+            _bloque2 = html[_idx2:_idx_end]
+            _bloque2_limpio = _re2.sub(r'<tbody>[\s\S]*?</tbody>', '<tbody></tbody>', _bloque2)
+            if _bloque2 != _bloque2_limpio:
+                html = html[:_idx2] + _bloque2_limpio + html[_idx_end:]
+                fixes_ok.append('DETALLE-RECURSO-2 tbodys vaciados')
+            else:
+                fixes_ok.append('DETALLE-RECURSO-2 tbodys (ya OK)')
+        else:
+            fixes_fail.append('DETALLE-RECURSO-2 (END marker no encontrado)')
+    else:
+        fixes_fail.append('DETALLE-RECURSO-2 (segunda instancia no encontrada)')
+
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
     return html
