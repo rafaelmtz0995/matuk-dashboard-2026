@@ -38,7 +38,7 @@ EXCLUIR_ING = {
     'COB','COMPENSACION POR RETRASO','TOTAL GENERAL',
     'DEVOLUCION DEPOSITO EN GARANTIA','DEVOLUCION GUILLERMO FORTINO',
     'DEVOLUCION RAFAEL RODRIGUEZ','PAGO PRESTAMO GUILLERMO FORTINO',
-    'PAGO PRESTAMO RAFAEL RODRIGUEZ','OTROS INGRESOS',
+    'PAGO PRESTAMO RAFAEL RODRIGUEZ','OTROS INGRESOS','MATUK LLC',
     'TOTAL COSTOS','COSTOS','TOTAL GASTOS','AMEX',
 }
 # NOTA: 'TRASPASO' se eliminó de EXCLUIR_ING para que aparezca en Flujo de Caja e ingresos.
@@ -53,66 +53,24 @@ def extraer_ingresos():
     wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
     ws = wb['Tabla ']
     rows = list(ws.iter_rows(values_only=True))
-    # Tabla tiene DOS secciones con headers distintos:
-    # Seccion 1 (ingresos): header fila 2 (idx 1) — B=ENERO, C=FEB, D=MAR...
-    # Seccion 2 (egresos con TRASPASO/EST FI): header fila 165 (idx 164) — C=ENERO, D=FEB...
-    # Leer ambas con su propio col_map para asignar correctamente cada mes
-
-    def make_col_map(header_row):
-        cm = {}
-        for j,h in enumerate(header_row):
-            if isinstance(h,str):
-                k = h.strip().upper()
-                if k in MES_LARGO and MES_LARGO[k] not in cm:
-                    cm[MES_LARGO[k]] = j
-        return cm
-
-    # Encontrar indices de ambos headers
-    sec1_idx = 1   # fila 2: ingresos (COB, MAGNIT, etc.)
-    sec2_idx = None
-    for i, row in enumerate(rows):
-        vals = [str(v).strip().upper() for v in row if v]
-        if 'ENERO' in vals and 'FEBRERO' in vals and 'SEPTIEMBRE' in vals:
-            if row[0] and 'HORAS' in str(row[0]).upper():
-                sec2_idx = i
-
-    col_map1 = make_col_map(rows[sec1_idx])
-    col_map2 = make_col_map(rows[sec2_idx]) if sec2_idx else {}
-
-    # No leer nada de la seccion 2 — TRASPASO y VENTA ACTIVO FIJO ya estan en seccion 1 (ingresos)
-    # EST FI es egreso y se lee en extraer_fegr_extra()
-    EGRESOS_INGRESOS = set()  # nada de la seccion 2
-
+    header = rows[1]
+    col_map = {}
+    for j,h in enumerate(header):
+        if isinstance(h,str):
+            k = h.strip().upper()
+            if k in MES_LARGO and MES_LARGO[k] not in col_map:
+                col_map[MES_LARGO[k]] = j
     clientes_mes = {m:{} for m in MESES}
     total_mes    = {m:0.0 for m in MESES}
-
-    # Leer seccion 1 (ingresos) — parar en primer Total general
-    for row in rows[sec1_idx+1:]:
+    for row in rows[2:]:
         nombre = str(row[0]).strip().upper() if row[0] else ""
-        if nombre == 'TOTAL GENERAL':
-            break
         if not nombre or nombre in EXCLUIR_ING: continue
-        for m,col in col_map1.items():
+        for m,col in col_map.items():
             if col < len(row):
                 val = sf(row[col])
                 if val > 0:
                     clientes_mes[m][nombre] = clientes_mes[m].get(nombre,0.0)+val
                     total_mes[m] += val
-
-    # Leer seccion 2 (egresos) — solo tomar TRASPASO, EST FI y VENTA ACTIVO FIJO
-    if sec2_idx and col_map2:
-        for row in rows[sec2_idx+1:]:
-            nombre = str(row[0]).strip().upper() if row[0] else ""
-            if nombre == 'TOTAL GENERAL':
-                break
-            if nombre not in EGRESOS_INGRESOS: continue
-            for m,col in col_map2.items():
-                if col < len(row):
-                    val = sf(row[col])
-                    if val > 0:
-                        clientes_mes[m][nombre] = clientes_mes[m].get(nombre,0.0)+val
-                        total_mes[m] += val
-
     wb.close()
     return clientes_mes, total_mes
 
@@ -507,7 +465,7 @@ MARCA_INI = "// ─── AUTO-GENERADO POR regenerar_dashboard_v2.py"
 MARCA_FIN = "// ─── FIN DATOS AUTO-GENERADOS"
 
 def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
-                    horas_data, breakdown, costos, fdata, fegr_extra=None):
+                    horas_data, breakdown, costos, fdata):
     if not os.path.exists(OUTPUT_HTML):
         print(f"ERROR: {OUTPUT_HTML}"); sys.exit(1)
 
@@ -576,7 +534,6 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
             else:
                 costos_mes_simple[m]={'horas_usd':0,'total_usd':0,'total_mxn':0}
         L.append("var FCOSTOS_MES = "+json.dumps(costos_mes_simple,ensure_ascii=False)+";")
-        # FEGR_EXTRA no va en el bloque — se actualiza via _replace_var abajo
 
         bloque = MARCA_INI+"\n"+"\n".join(L)+"\n"+MARCA_FIN
         html  = html[:idx_i]+bloque+html[idx_f_end:]
@@ -584,97 +541,13 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
     else:
         print("  WARN: marcadores no encontrados")
 
-    # Actualizar FEGR_EXTRA via _replace_var (sobrescribe la vieja hardcoded)
-    if fegr_extra:
-        html = _replace_var(html, 'FEGR_EXTRA', json.dumps(fegr_extra, ensure_ascii=False))
-
-
     with open(OUTPUT_HTML,'w',encoding='utf-8') as f: f.write(html)
     print(f"  OK guardado ({len(html):,} bytes)")
 
 
 
-# ── FEGR_EXTRA desde FLUJO detalle ───────────────────────────────────────────
-def extraer_fegr_extra():
-    """Extrae comisiones, gastos_op, seguros, ptu, prestamo, estfi, costos_otros por mes."""
-    print("  FEGR_EXTRA (FLUJO detalle)...")
-    wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
-    ws = wb['FLUJO detalle']
-    rows = list(ws.iter_rows(values_only=True))
-
-    # Columnas MXN por mes: ENE=col2, FEB=col5, MAR=col8... (0-indexed, cada 3 cols)
-    mxn_cols = {m: 2 + i*3 for i, m in enumerate(MESES)}
-
-    def get_mx(row, m):
-        col = mxn_cols.get(m, -1)
-        if col < 0 or col >= len(row): return 0.0
-        return sf(row[col])
-
-    result = {m: {'comisiones':0,'gastos_op':0,'nom_admon':0,'seguros':0,'ptu':0,'prestamo':0,'estfi':0,
-                  'activo_fijo':0,'costos_otros':0,'total_costos':0,'horas':0,'viat':0} for m in MESES}
-
-    # Labels after .strip() (trailing spaces removed)
-    # NOTA: gastos_op = Total GASTOS - COMISIONES - NOM ADMON (para no duplicar con fdata)
-    TARGETS = {
-        'COMISIONES':       'comisiones',
-        'NOM ADMON':        'nom_admon',   # se resta de gastos_op al final
-        'TOTAL GASTOS':     'gastos_op',
-        'Total GASTOS':     'gastos_op',
-        'SEGUROS':          'seguros',
-        'PTU':              'ptu',
-        'ESTRATEGIA FISCAL':'estfi',
-        'EST FI':           'estfi',
-        'ACTIVO FIJO':      'activo_fijo',
-        'Total COSTOS':     'total_costos',
-        'TOTAL COSTOS':     'total_costos',
-        'HORAS':            'horas',
-        'VIATICOS':         'viat',
-    }
-    # PRESTAMO: hay 2 filas — fila 121 (en COSTOS, siempre 0) y fila 144 (en GASTOS, tiene valor)
-    # Sumar ambas por si acaso (la primera siempre es 0)
-    found = set()
-
-    for i, row in enumerate(rows):
-        label = str(row[0]).strip() if row[0] else ""
-        # PRESTAMO: sumar todas las ocurrencias (fila 121=0, fila 144=valor real)
-        if label == 'PRESTAMO':
-            for m in MESES:
-                result[m]['prestamo'] += get_mx(row, m)
-            continue
-        if label in TARGETS and label not in found:
-            key = TARGETS[label]
-            found.add(label)
-            for m in MESES:
-                result[m][key] = get_mx(row, m)
-
-    # gastos_op = Total GASTOS - COMISIONES - NOM ADMON - PTU (ya aparecen por separado en fdata/fegr_extra)
-    for m in MESES:
-        result[m]['gastos_op'] = max(0, result[m]['gastos_op'] - result[m]['comisiones'] - result[m]['nom_admon'] - result[m]['ptu'])
-
-    # costos_otros = Total COSTOS - horas - viaticos
-    for m in MESES:
-        tc = result[m]['total_costos']
-        h  = result[m]['horas']
-        v  = result[m]['viat']
-        result[m]['costos_otros'] = max(0, round(tc - h - v))
-
-    wb.close()
-
-    # Limpiar campos internos antes de devolver
-    final = {}
-    for m in MESES:
-        d = result[m]
-        if any(d[k] for k in ['comisiones','gastos_op','seguros','ptu','prestamo','estfi','costos_otros','activo_fijo']):
-            final[m] = {k: int(round(d[k])) for k in ['costos_otros','gastos_op','seguros','comisiones','ptu','prestamo','estfi','activo_fijo']}
-
-    print(f"    Meses con FEGR_EXTRA: {list(final.keys())}")
-    if 'SEP' in final:
-        print(f"    SEP: {final['SEP']}")
-    return final
-
-
 # ── FIXES POST-REGENERACION ───────────────────────────────────────────────────
-def aplicar_fixes(html, ultimo_mes_real=None, fegr_extra=None, tc_mes=None):
+def aplicar_fixes(html, ultimo_mes_real=None):
     """Re-aplica todos los fixes manuales que el regenerador sobreescribe."""
     fixes_ok = []
     fixes_fail = []
@@ -787,7 +660,7 @@ function buildCostosCharts(){
     else:
         fixes_fail.append("showTab costos -> buildCostosCharts")
 
-    # FIX 5: Canvas HTML para graficas costos (antes de HISTORIAL PASIVOS)
+    # FIX 5: Canvas HTML para graficas costos (ANTES de la tabla, después del filtro/KPIs)
     CANVAS = """
       <!-- GRAFICAS COSTOS -->
       <div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
@@ -805,15 +678,39 @@ function buildCostosCharts(){
         </div>
       </div>
 """
+    # Anchor: el div que contiene la barra de búsqueda de costos (justo antes de la tabla)
+    CANVAS_ANCHOR = '<table>\n    <thead>\n      <tr>\n        <th style="min-width:200px">Mes</th>\n        <th class="num">Costo Hrs USD</th>'
+    import re as _re_canvas
     if 'costos-tendencia-chart' not in html:
-        anchor = '<!-- HISTORIAL PASIVOS SECTION -->'
-        if anchor in html:
-            html = html.replace(anchor, CANVAS + '\n' + anchor)
-            fixes_ok.append("Canvas graficas costos insertado")
+        # Insertar gráficas justo antes de la tabla de costos
+        if CANVAS_ANCHOR in html:
+            html = html.replace(CANVAS_ANCHOR, CANVAS.strip() + '\n\n  ' + CANVAS_ANCHOR, 1)
+            fixes_ok.append("Canvas graficas costos insertado antes de tabla")
         else:
-            fixes_fail.append("Canvas graficas costos (anchor no encontrado)")
+            # Fallback: antes de HISTORIAL PASIVOS
+            anchor2 = '<!-- HISTORIAL PASIVOS SECTION -->'
+            if anchor2 in html:
+                html = html.replace(anchor2, CANVAS + '\n' + anchor2)
+                fixes_ok.append("Canvas graficas costos insertado (fallback)")
+            else:
+                fixes_fail.append("Canvas graficas costos (anchor no encontrado)")
     else:
-        fixes_ok.append("Canvas graficas costos (ya OK)")
+        # Ya existen — verificar si están antes o después de la tabla
+        canvas_pos = html.find('<!-- GRAFICAS COSTOS -->')
+        table_pos = html.find(CANVAS_ANCHOR)
+        if table_pos > 0 and canvas_pos > table_pos:
+            # Gráficas están después de la tabla — moverlas
+            canvas_block_match = _re_canvas.search(
+                r'<!-- GRAFICAS COSTOS -->[\s\S]*?</div>\s*</div>\s*</div>', html)
+            if canvas_block_match:
+                canvas_block = canvas_block_match.group(0)
+                html = html.replace(canvas_block, '', 1)
+                html = html.replace(CANVAS_ANCHOR, canvas_block + '\n\n  ' + CANVAS_ANCHOR, 1)
+                fixes_ok.append("Canvas graficas costos movido antes de tabla")
+            else:
+                fixes_ok.append("Canvas graficas costos (ya OK, patron no coincide)")
+        else:
+            fixes_ok.append("Canvas graficas costos (ya OK)")
 
     # FIX FLUJO: botones de mes, textos ENE-XXX y subtítulo Saldo Final
     # Determinar último mes con datos en FDATA
@@ -967,155 +864,17 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         fixes_fail.append("RS MONTH FILTER botón SEP")
 
     # FIX COSTOS_OTROS_USD: declarar variable antes de que buildCostosTable la use
-    # Calcular COSTOS_OTROS_USD = costos_otros MXN / TC por mes
-    _cou = {}
-    if fegr_extra and tc_mes:
-        for _m in MESES:
-            _co = fegr_extra.get(_m, {}).get('costos_otros', 0)
-            _tc = tc_mes.get(_m, 18.5)
-            if _co and _tc:
-                _cou[_m] = round(_co / _tc, 2)
-    _cou_js = 'var COSTOS_OTROS_USD=' + json.dumps(_cou) + ';'
     if 'var COSTOS_OTROS_USD' not in html:
         old_cres = 'var CRES='
         if old_cres in html:
-            html = html.replace(old_cres, _cou_js + '\n' + old_cres, 1)
-            fixes_ok.append("COSTOS_OTROS_USD declarado con datos")
+            html = html.replace(old_cres, 'var COSTOS_OTROS_USD={};\n' + old_cres, 1)
+            fixes_ok.append("COSTOS_OTROS_USD declarado")
         else:
             fixes_fail.append("COSTOS_OTROS_USD (anchor CRES no encontrado)")
     else:
-        html = _replace_var(html, 'COSTOS_OTROS_USD', json.dumps(_cou))
-        fixes_ok.append("COSTOS_OTROS_USD actualizado")
-
-    # FIX COSTOS_TOTAL_USD: sumar otrosCostos al totalTotalUSD
-    OLD_TOTAL = "    totalTotalUSD += d.usd_total||0;"
-    NEW_TOTAL = "    totalTotalUSD += (d.usd_total||0) + otrosCostos;"
-    if OLD_TOTAL in html:
-        html = html.replace(OLD_TOTAL, NEW_TOTAL, 1)
-        fixes_ok.append("totalTotalUSD incluye otrosCostos")
-    elif NEW_TOTAL in html:
-        fixes_ok.append("totalTotalUSD (ya OK)")
-    else:
-        fixes_fail.append("totalTotalUSD (patron no encontrado)")
+        fixes_ok.append("COSTOS_OTROS_USD (ya OK)")
 
     print("  FIXES OK:", ", ".join(fixes_ok))
-    # FIX EGRCATS: orden correcto (costos primero, luego gastos) y sin auto-sort por monto
-    # FIX EGRCATS: orden correcto via regex
-    EGRCATS_DESEADO = """const egrCats = [
-    {k:'horas',       label:'Horas técnicas', color:'#1F5BA6',src:'fdata'},
-    {k:'viat',        label:'Viáticos',       color:'#0369A1',src:'fdata'},
-    {k:'costos_otros',label:'Otros costos',   color:'#0891B2',src:'extra'},
-    {k:'nom',         label:'Nómina admin',   color:'#E8A020',src:'fdata'},
-    {k:'comisiones',  label:'Comisiones',     color:'#F59E0B',src:'extra'},
-    {k:'gastos_op',   label:'Gastos op.',     color:'#D97706',src:'extra'},
-    {k:'imp',         label:'Impuestos',      color:'#94A3B8',src:'fdata'},
-    {k:'amex',        label:'AMEX',           color:'#7C3AED',src:'fdata'},
-    {k:'cf',          label:'Costos fijos',   color:'#06B6D4',src:'fdata'},
-    {k:'seguros',     label:'Seguros',        color:'#65A30D',src:'extra'},
-    {k:'ptu',         label:'PTU',            color:'#92400E',src:'extra'},
-    {k:'prestamo',    label:'Préstamo',       color:'#DC2626',src:'extra'},
-    {k:'estfi',       label:'Est. Fiscal',    color:'#EF4444',src:'extra'},
-    {k:'activo_fijo', label:'Activo Fijo',    color:'#6366F1',src:'extra'},
-  ];"""
-    OLD_SORT = "}).filter(function(c){ return c.v>0; }).sort((a,b)=>b.v-a.v);"
-    NEW_SORT  = "}).filter(function(c){ return c.v>0; });"
-    import re as _re
-    _egr_pattern = r'const egrCats = \[[\s\S]*?\];'
-    if _re.search(_egr_pattern, html):
-        html = _re.sub(_egr_pattern, EGRCATS_DESEADO, html, count=1)
-        if OLD_SORT in html:
-            html = html.replace(OLD_SORT, NEW_SORT, 1)
-        fixes_ok.append("egrCats orden fijo (horas→nom→comisiones→gastos)")
-    else:
-        fixes_fail.append("egrCats (bloque no encontrado)")
-
-    # FIX FCLIENTES_MES DUPLICADO: eliminar la segunda declaracion (formato con comillas simples, solo hasta AGO)
-    # La segunda sobrescribe la primera (que tiene SEP) causando TOP 8 CLIENTES vacio en SEP
-    _fcli_positions = [m.start() for m in _re.finditer(r'var FCLIENTES_MES\s*=\s*\{', html)]
-    if len(_fcli_positions) >= 2:
-        _idx2 = _fcli_positions[1]
-        _chunk2 = html[_idx2:]
-        _depth2 = 0; _ci = _chunk2.find('{')
-        while _ci < len(_chunk2):
-            if _chunk2[_ci] == '{': _depth2 += 1
-            elif _chunk2[_ci] == '}':
-                _depth2 -= 1
-                if _depth2 == 0: break
-            _ci += 1
-        _end2 = _idx2 + _ci + 1
-        if html[_end2:_end2+2] in (';\n', '; '):
-            _end2 += 2
-        elif html[_end2] == ';':
-            _end2 += 1
-        html = html[:_idx2] + html[_end2:]
-        fixes_ok.append("FCLIENTES_MES duplicado eliminado (TOP8 SEP fix)")
-    elif len(_fcli_positions) == 1:
-        fixes_ok.append("FCLIENTES_MES OK (sin duplicado)")
-    else:
-        fixes_fail.append("FCLIENTES_MES (no encontrado)")
-
-    # FIX CLIENTES MES: mostrar todos los clientes (sin limite), excluir egresos, incluir TRASPASO
-    # Cambios: quitar slice(0,8), excluir solo egresos, colores con modulo, titulo correcto
-    import re as _re2
-    # a) Excluir egresos mezclados (sin TRASPASO que es ingreso real)
-    _CLI_EXCLUIR_OLD = ("var _cliExcluir = ['GASTOS','SEGUROS','COSTOS FIJOS','IMPUESTOS','PRESTAMO','TRASPASO',"
-                        "'EST FI','VENTA ACTIVO FIJO','N\u00d3MINA','NOMINA','COMISIONES','VI\u00c1TICOS','VIATICOS','PTU'];")
-    _CLI_EXCLUIR_NEW = ("var _cliExcluir = ['GASTOS','SEGUROS','COSTOS FIJOS','IMPUESTOS','PRESTAMO',"
-                        "'EST FI','VENTA ACTIVO FIJO','N\u00d3MINA','NOMINA','COMISIONES','VI\u00c1TICOS','VIATICOS','PTU'];")
-    # b) Quitar .slice(0,8)
-    _SLICE_OLD = "const cliEntries = Object.entries(cliFiltered).sort((a,b)=>b[1]-a[1]).slice(0,8);"
-    _SLICE_NEW = "const cliEntries = Object.entries(cliFiltered).sort((a,b)=>b[1]-a[1]);"
-    # c) Colores con modulo para mas de 18 clientes
-    _COL_OLD = "colors8[i]+"
-    _COL_NEW = "colors8[i%colors8.length]+"
-    # d) Titulo
-    _TTL_OLD = ">Top 8 Clientes \u2014 YTD</div>"
-    _TTL_NEW = ">Clientes del mes</div>"
-    # e) Label total
-    _TOT_OLD = "Total Top 8:"
-    _TOT_NEW = "Total clientes:"
-    # f) Filtro base (si viene sin filtro aun)
-    _CLI_BASE_OLD = ('var cliFiltered = {};\n'
-                     '  months.forEach(function(m){\n'
-                     '    if(FCLIENTES_MES[m]){\n'
-                     '      Object.entries(FCLIENTES_MES[m]).forEach(function(e){\n'
-                     '        const name=e[0], val=(typeof e[1]===\'object\' ? (e[1].mx||0) : (e[1]||0));\n'
-                     '        cliFiltered[name] = (cliFiltered[name]||0) + val;\n'
-                     '      });\n'
-                     '    }\n'
-                     '  });')
-    _CLI_BASE_NEW = ('var cliFiltered = {};\n'
-                     "  var _cliExcluir = ['GASTOS','SEGUROS','COSTOS FIJOS','IMPUESTOS','PRESTAMO',"
-                     "'EST FI','VENTA ACTIVO FIJO','N\u00d3MINA','NOMINA','COMISIONES','VI\u00c1TICOS','VIATICOS','PTU'];\n"
-                     '  months.forEach(function(m){\n'
-                     '    if(FCLIENTES_MES[m]){\n'
-                     '      Object.entries(FCLIENTES_MES[m]).forEach(function(e){\n'
-                     '        const name=e[0], val=(typeof e[1]===\'object\' ? (e[1].mx||0) : (e[1]||0));\n'
-                     '        if(_cliExcluir.indexOf(name) === -1) {\n'
-                     '          cliFiltered[name] = (cliFiltered[name]||0) + val;\n'
-                     '        }\n'
-                     '      });\n'
-                     '    }\n'
-                     '  });')
-    applied = []
-    if _CLI_EXCLUIR_OLD in html:
-        html = html.replace(_CLI_EXCLUIR_OLD, _CLI_EXCLUIR_NEW, 1); applied.append("excluir-sin-traspaso")
-    if _CLI_BASE_OLD in html:
-        html = html.replace(_CLI_BASE_OLD, _CLI_BASE_NEW, 1); applied.append("filtro-base")
-    if _SLICE_OLD in html:
-        html = html.replace(_SLICE_OLD, _SLICE_NEW, 1); applied.append("sin-slice8")
-    html = html.replace(_COL_OLD, _COL_NEW)
-    if _TTL_OLD in html:
-        html = html.replace(_TTL_OLD, _TTL_NEW, 1); applied.append("titulo")
-    if _TOT_OLD in html:
-        html = html.replace(_TOT_OLD, _TOT_NEW); applied.append("total-label")
-    if applied:
-        fixes_ok.append("Clientes mes: " + "+".join(applied))
-    else:
-        fixes_ok.append("Clientes mes: ya OK")
-
-
-
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
     return html
@@ -1273,7 +1032,6 @@ def main():
     horas_data, breakdown   = extraer_horas()
     costos                  = extraer_costos(tc_mes)
     cierres, detalle, vivo  = extraer_pasivo()
-    fegr_extra              = extraer_fegr_extra()
 
     print()
     for m in MESES:
@@ -1284,7 +1042,7 @@ def main():
 
     # Actualizar DATA, FDATA, COSTOS, BREAKDOWN, FCLIENTES, etc. en el HTML
     actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
-                    horas_data, breakdown, costos, fdata, fegr_extra)
+                    horas_data, breakdown, costos, fdata)
 
     # Actualizar sección HISTORIAL PASIVOS (hardcodeada en HTML)
     print("  Aplicando datos de HISTORIAL PASIVOS...")
@@ -1366,7 +1124,7 @@ def main():
         if _m in fdata and (fdata[_m].get('ing_mx',0) or 0) > 0:
             ultimo_real = _m
             break
-    html_fix = aplicar_fixes(html_fix, ultimo_mes_real=ultimo_real, fegr_extra=fegr_extra, tc_mes=tc_mes)
+    html_fix = aplicar_fixes(html_fix, ultimo_mes_real=ultimo_real)
     with open(OUTPUT_HTML, 'w', encoding='utf-8') as f: f.write(html_fix)
 
     print()
