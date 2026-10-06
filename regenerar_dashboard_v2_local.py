@@ -588,14 +588,6 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
     if fegr_extra:
         html = _replace_var(html, 'FEGR_EXTRA', json.dumps(fegr_extra, ensure_ascii=False))
 
-    # Actualizar COSTOS_OTROS_USD: costos_otros MXN / TC por mes
-    costos_otros_usd = {}
-    for m in MESES:
-        if fegr_extra and m in fegr_extra and fegr_extra[m].get('costos_otros', 0):
-            tc = tc_mes.get(m, 18.5)
-            if tc > 0:
-                costos_otros_usd[m] = round(fegr_extra[m]['costos_otros'] / tc, 2)
-    html = _replace_var(html, 'COSTOS_OTROS_USD', json.dumps(costos_otros_usd))
 
     with open(OUTPUT_HTML,'w',encoding='utf-8') as f: f.write(html)
     print(f"  OK guardado ({len(html):,} bytes)")
@@ -682,7 +674,7 @@ def extraer_fegr_extra():
 
 
 # ── FIXES POST-REGENERACION ───────────────────────────────────────────────────
-def aplicar_fixes(html, ultimo_mes_real=None):
+def aplicar_fixes(html, ultimo_mes_real=None, fegr_extra=None, tc_mes=None):
     """Re-aplica todos los fixes manuales que el regenerador sobreescribe."""
     fixes_ok = []
     fixes_fail = []
@@ -975,15 +967,25 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         fixes_fail.append("RS MONTH FILTER botón SEP")
 
     # FIX COSTOS_OTROS_USD: declarar variable antes de que buildCostosTable la use
+    # Calcular COSTOS_OTROS_USD = costos_otros MXN / TC por mes
+    _cou = {}
+    if fegr_extra and tc_mes:
+        for _m in MESES:
+            _co = fegr_extra.get(_m, {}).get('costos_otros', 0)
+            _tc = tc_mes.get(_m, 18.5)
+            if _co and _tc:
+                _cou[_m] = round(_co / _tc, 2)
+    _cou_js = 'var COSTOS_OTROS_USD=' + json.dumps(_cou) + ';'
     if 'var COSTOS_OTROS_USD' not in html:
         old_cres = 'var CRES='
         if old_cres in html:
-            html = html.replace(old_cres, 'var COSTOS_OTROS_USD={};\n' + old_cres, 1)
-            fixes_ok.append("COSTOS_OTROS_USD declarado")
+            html = html.replace(old_cres, _cou_js + '\n' + old_cres, 1)
+            fixes_ok.append("COSTOS_OTROS_USD declarado con datos")
         else:
             fixes_fail.append("COSTOS_OTROS_USD (anchor CRES no encontrado)")
     else:
-        fixes_ok.append("COSTOS_OTROS_USD (ya OK)")
+        html = _replace_var(html, 'COSTOS_OTROS_USD', json.dumps(_cou))
+        fixes_ok.append("COSTOS_OTROS_USD actualizado")
 
     print("  FIXES OK:", ", ".join(fixes_ok))
     # FIX EGRCATS: orden correcto (costos primero, luego gastos) y sin auto-sort por monto
@@ -1353,7 +1355,7 @@ def main():
         if _m in fdata and (fdata[_m].get('ing_mx',0) or 0) > 0:
             ultimo_real = _m
             break
-    html_fix = aplicar_fixes(html_fix, ultimo_mes_real=ultimo_real)
+    html_fix = aplicar_fixes(html_fix, ultimo_mes_real=ultimo_real, fegr_extra=fegr_extra, tc_mes=tc_mes)
     with open(OUTPUT_HTML, 'w', encoding='utf-8') as f: f.write(html_fix)
 
     print()
