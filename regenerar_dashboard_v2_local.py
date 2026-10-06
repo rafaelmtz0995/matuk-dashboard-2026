@@ -851,6 +851,51 @@ function buildCostosCharts(){
     else:
         fixes_ok.append("Canvas graficas costos (ya OK)")
 
+    # FIX PASIVOS EN VIEW-COSTOS: asegurar que el bloque de pasivos esté dentro de view-costos
+    import re as _re_pasivos
+    _PASIVOS_START = '<!-- HISTORIAL PASIVOS SECTION -->'
+    _PASIVOS_END = '<!-- END HISTORIAL PASIVOS -->'
+    _idx_costos = html.find('<div id="view-costos"')
+    _idx_ps = html.find(_PASIVOS_START)
+    _idx_pe_end = html.find(_PASIVOS_END) + len(_PASIVOS_END) if _PASIVOS_END in html else -1
+    if _idx_costos > 0 and _idx_ps > 0 and _idx_pe_end > 0:
+        # Calcular el cierre real de view-costos (sin pasivos)
+        _depth = 0
+        _close_pos = None
+        for _m in _re_pasivos.finditer(r'</?div[\s>]', html[_idx_costos:]):
+            _abs = _idx_costos + _m.start()
+            if _m.group().startswith('</'): _depth -= 1
+            else: _depth += 1
+            if _depth == 0:
+                _close_pos = _abs
+                break
+        if _close_pos and _close_pos < _idx_ps:
+            # pasivos está FUERA de view-costos: moverlo adentro
+            _pasivos_block = html[_idx_ps:_idx_pe_end]
+            html = html[:_idx_ps] + html[_idx_pe_end:]
+            # Recalcular cierre de view-costos
+            _depth2 = 0
+            _close_pos2 = None
+            for _m2 in _re_pasivos.finditer(r'</?div[\s>]', html[_idx_costos:]):
+                _abs2 = _idx_costos + _m2.start()
+                if _m2.group().startswith('</'): _depth2 -= 1
+                else: _depth2 += 1
+                if _depth2 == 0:
+                    _close_pos2 = _abs2
+                    break
+            if _close_pos2:
+                html = html[:_close_pos2] + '\n' + _pasivos_block + '\n</div><!-- /view-costos -->' + html[_close_pos2+len('</div>'):]
+                fixes_ok.append("Pasivos movido dentro de view-costos")
+            else:
+                fixes_fail.append("Pasivos: no se encontró cierre de view-costos")
+        elif _close_pos and _close_pos > _idx_pe_end:
+            fixes_ok.append("Pasivos (ya OK — dentro de view-costos)")
+        else:
+            fixes_ok.append("Pasivos (posicion OK)")
+    else:
+        fixes_fail.append("Pasivos: anchors no encontrados")
+
+
     # FIX FLUJO: botones de mes, textos ENE-XXX y subtítulo Saldo Final
     # Determinar último mes con datos en FDATA
     MESES_ORD = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
