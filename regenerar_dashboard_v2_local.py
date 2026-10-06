@@ -987,6 +987,17 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         html = _replace_var(html, 'COSTOS_OTROS_USD', json.dumps(_cou))
         fixes_ok.append("COSTOS_OTROS_USD actualizado")
 
+    # FIX COSTOS_TOTAL_USD: sumar otrosCostos al totalTotalUSD
+    OLD_TOTAL = "    totalTotalUSD += d.usd_total||0;"
+    NEW_TOTAL = "    totalTotalUSD += (d.usd_total||0) + otrosCostos;"
+    if OLD_TOTAL in html:
+        html = html.replace(OLD_TOTAL, NEW_TOTAL, 1)
+        fixes_ok.append("totalTotalUSD incluye otrosCostos")
+    elif NEW_TOTAL in html:
+        fixes_ok.append("totalTotalUSD (ya OK)")
+    else:
+        fixes_fail.append("totalTotalUSD (patron no encontrado)")
+
     print("  FIXES OK:", ", ".join(fixes_ok))
     # FIX EGRCATS: orden correcto (costos primero, luego gastos) y sin auto-sort por monto
     # FIX EGRCATS: orden correcto via regex
