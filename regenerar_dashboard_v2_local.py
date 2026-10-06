@@ -1144,38 +1144,32 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
 
 
 
-    # FIX DETALLE-RECURSO-2: eliminar COMPLETAMENTE la segunda instancia del DETALLE POR RECURSO
-    # La segunda instancia (dentro del bloque del script sin cerrar en Chrome) tiene 64 lineas de HTML
-    # que exceden el threshold de Chrome (~702 lineas). La solucion correcta es eliminarla por completo.
-    # La primera instancia (fuera del script, en L721) conserva sus datos estaticos y es la que se muestra.
-    # Eliminar la segunda instancia reduce el conteo de ~735 a ~672 lineas (bien por debajo del umbral de 702).
-    _DR_MARKER = '  <!-- DETALLE POR RECURSO -->'
-    _DR_MARKER2 = '<!-- DETALLE POR RECURSO -->'  # variante sin indentacion
-    _idx1 = html.find(_DR_MARKER)
-    if _idx1 < 0:
-        _idx1 = html.find(_DR_MARKER2)
-    _idx2 = -1
-    if _idx1 >= 0:
-        # Buscar segunda instancia con ambas variantes
-        _idx2a = html.find(_DR_MARKER, _idx1+1)
-        _idx2b = html.find(_DR_MARKER2, _idx1+1)
-        if _idx2a >= 0 and _idx2b >= 0:
-            _idx2 = min(_idx2a, _idx2b)
-        elif _idx2a >= 0:
-            _idx2 = _idx2a
-        elif _idx2b >= 0:
-            _idx2 = _idx2b
-    if _idx2 >= 0:
-        _end_marker = '<!-- END HISTORIAL PASIVOS -->'
-        _idx_end = html.find(_end_marker, _idx2)
-        if _idx_end >= 0:
-            # Eliminar desde la segunda instancia hasta END_MARKER (sin incluir END_MARKER)
-            html = html[:_idx2] + html[_idx_end:]
-            fixes_ok.append('DETALLE-RECURSO-2 eliminado')
+    # FIX HISTORIAL-PASIVOS-2: eliminar COMPLETAMENTE la segunda seccion de HISTORIAL PASIVOS
+    # La segunda instancia (dentro del bloque del return ' sin cerrar en Chrome) tiene ~375 lineas de HTML
+    # que son la causa raiz del SyntaxError L3295. El threshold de Chrome es ~702 lineas.
+    # Sin esta seccion el bloque queda en ~478 lineas (bien por debajo del umbral).
+    # La primera instancia (fuera del script, antes de L721) conserva sus datos y es la que se muestra.
+    # IMPORTANTE: Se elimina desde <!-- HISTORIAL PASIVOS SECTION --> hasta <!-- END HISTORIAL PASIVOS -->
+    # incluyendo el <script> de showRecursoMes que esta dentro de esa seccion.
+    _HP_MARKER = '<!-- HISTORIAL PASIVOS SECTION -->'
+    _HP_END = '<!-- END HISTORIAL PASIVOS -->'
+    _hp1 = html.find(_HP_MARKER)
+    _hp2 = -1
+    if _hp1 >= 0:
+        _hp2 = html.find(_HP_MARKER, _hp1 + 1)
+    if _hp2 >= 0:
+        # Hay dos instancias - eliminar la segunda completa (incluyendo END marker)
+        _hp_end_idx = html.find(_HP_END, _hp2)
+        if _hp_end_idx >= 0:
+            _hp_end_full = _hp_end_idx + len(_HP_END)
+            html = html[:_hp2] + html[_hp_end_full:]
+            fixes_ok.append('HISTORIAL-PASIVOS-2 eliminado')
         else:
-            fixes_fail.append('DETALLE-RECURSO-2 (END marker no encontrado)')
+            fixes_fail.append('HISTORIAL-PASIVOS-2 (END marker no encontrado)')
+    elif _hp1 >= 0:
+        fixes_ok.append('HISTORIAL-PASIVOS-2 (segunda instancia ya no existe - OK)')
     else:
-        fixes_ok.append('DETALLE-RECURSO-2 (segunda instancia ya no existe - OK)')
+        fixes_fail.append('HISTORIAL-PASIVOS-2 (marker HISTORIAL PASIVOS SECTION no encontrado)')
 
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
