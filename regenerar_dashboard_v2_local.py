@@ -588,6 +588,15 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
     if fegr_extra:
         html = _replace_var(html, 'FEGR_EXTRA', json.dumps(fegr_extra, ensure_ascii=False))
 
+    # Actualizar COSTOS_OTROS_USD: costos_otros MXN / TC por mes
+    costos_otros_usd = {}
+    for m in MESES:
+        if fegr_extra and m in fegr_extra and fegr_extra[m].get('costos_otros', 0):
+            tc = tc_mes.get(m, 18.5)
+            if tc > 0:
+                costos_otros_usd[m] = round(fegr_extra[m]['costos_otros'] / tc, 2)
+    html = _replace_var(html, 'COSTOS_OTROS_USD', json.dumps(costos_otros_usd))
+
     with open(OUTPUT_HTML,'w',encoding='utf-8') as f: f.write(html)
     print(f"  OK guardado ({len(html):,} bytes)")
 
