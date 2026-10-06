@@ -787,114 +787,49 @@ function buildCostosCharts(){
     else:
         fixes_fail.append("showTab costos -> buildCostosCharts")
 
-    # FIX 5: Canvas HTML para graficas costos (antes de HISTORIAL PASIVOS)
-    CANVAS = """
-      <!-- GRAFICAS COSTOS -->
-      <div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
-        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">
-          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">
-            <span style="color:#F59E0B;margin-right:6px">&#9679;</span>Tendencia Mensual vs Acumulado
-          </div>
-          <canvas id="costos-tendencia-chart" height="110"></canvas>
-        </div>
-        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">
-          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">
-            <span style="color:#1F5BA6;margin-right:6px">&#9679;</span>Total de Costos por Mes (USD)
-          </div>
-          <canvas id="costos-barras-chart" height="110"></canvas>
-        </div>
-      </div>
-"""
-    HIST_ANCHOR5 = '<!-- HISTORIAL PASIVOS SECTION -->'
+    # FIX 5: Canvas HTML para graficas costos — deben estar ANTES de la tabla (ctbody)
+    CANVAS5 = '\n      <!-- GRAFICAS COSTOS -->\n      <div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">\n        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">\n          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n            <span style="color:#F59E0B;margin-right:6px">&#9679;</span>Tendencia Mensual vs Acumulado\n          </div>\n          <canvas id="costos-tendencia-chart" height="110"></canvas>\n        </div>\n        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">\n          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n            <span style="color:#1F5BA6;margin-right:6px">&#9679;</span>Total de Costos por Mes (USD)\n          </div>\n          <canvas id="costos-barras-chart" height="110"></canvas>\n        </div>\n      </div>\n'
+    TABLE_ANCHOR5 = '<tbody id="ctbody">'
     import re as _re5
-    canvas_present5 = 'costos-tendencia-chart' in html
+    canvas_present = 'costos-tendencia-chart' in html
     canvas_pos5 = html.find('costos-tendencia-chart')
-    hist_pos5 = html.find(HIST_ANCHOR5)
-    if not canvas_present5:
-        # Insertar justo antes de HISTORIAL PASIVOS
-        if HIST_ANCHOR5 in html:
-            html = html.replace(HIST_ANCHOR5, CANVAS + '\n' + HIST_ANCHOR5, 1)
-            fixes_ok.append("Canvas graficas costos insertado antes de pasivos")
-        else:
-            fixes_fail.append("Canvas graficas costos (HISTORIAL PASIVOS anchor no encontrado)")
-    elif hist_pos5 > 0:
-        # Verificar posicion: canvas debe estar DESPUES de la tabla Y ANTES de pasivos
-        ctbody_pos5 = html.find('<tbody id="ctbody">')
-        tabla_end5 = html.find('</table>', ctbody_pos5) + len('</table>') if ctbody_pos5 > 0 else 0
-        correct_pos = (tabla_end5 > 0 and tabla_end5 < canvas_pos5 < hist_pos5)
-        if correct_pos:
-            fixes_ok.append("Canvas graficas costos (ya OK — tabla->graficas->pasivos)")
-        else:
-            # Extraer bloque canvas (el div flex que contiene ambas graficas)
-            flex_start = html.rfind('<div style="display:flex', 0, canvas_pos5)
-            barras_pos = html.find('costos-barras-chart', canvas_pos5)
-            flex_end = html.find('</div>', barras_pos)
-            flex_end = html.find('</div>', flex_end+1)
-            flex_end = html.find('</div>', flex_end+1)
-            flex_end += len('</div>')
-            if flex_start > 0 and flex_end > flex_start:
-                canvas_block = html[flex_start:flex_end]
-                html = html[:flex_start] + html[flex_end:]
-                # Recalcular posicion de tabla despues de extraccion
-                ctbody_pos5b = html.find('<tbody id="ctbody">')
-                tabla_end5b = html.find('</table>', ctbody_pos5b) + len('</table>') if ctbody_pos5b > 0 else -1
-                if tabla_end5b > 0:
-                    # Insertar inmediatamente despues de </table> de costos, antes de pasivos
-                    html = html[:tabla_end5b] + '\n\n' + canvas_block + '\n' + html[tabla_end5b:]
-                    fixes_ok.append("Canvas graficas costos reposicionado: tabla->graficas->pasivos")
-                else:
-                    # fallback: insertar antes de pasivos
-                    html = html.replace(HIST_ANCHOR5, canvas_block + '\n\n' + HIST_ANCHOR5, 1)
-                    fixes_ok.append("Canvas graficas costos movido antes de pasivos (fallback)")
+    table_pos5 = html.find(TABLE_ANCHOR5)
+    if not canvas_present:
+        # Insertar antes de la tabla
+        if TABLE_ANCHOR5 in html:
+            # buscar el <table> más cercano antes de ctbody
+            t_open = html.rfind('<table>', 0, table_pos5)
+            if t_open > 0:
+                html = html[:t_open] + CANVAS5 + html[t_open:]
+                fixes_ok.append("Canvas graficas costos insertado antes de tabla")
             else:
-                fixes_fail.append("Canvas graficas costos (no se pudo extraer bloque)")
-    else:
-        fixes_ok.append("Canvas graficas costos (ya OK)")
-
-    # FIX PASIVOS EN VIEW-COSTOS: asegurar que el bloque de pasivos esté dentro de view-costos
-    import re as _re_pasivos
-    _PASIVOS_START = '<!-- HISTORIAL PASIVOS SECTION -->'
-    _PASIVOS_END = '<!-- END HISTORIAL PASIVOS -->'
-    _idx_costos = html.find('<div id="view-costos"')
-    _idx_ps = html.find(_PASIVOS_START)
-    _idx_pe_end = html.find(_PASIVOS_END) + len(_PASIVOS_END) if _PASIVOS_END in html else -1
-    if _idx_costos > 0 and _idx_ps > 0 and _idx_pe_end > 0:
-        # Calcular el cierre real de view-costos (sin pasivos)
-        _depth = 0
-        _close_pos = None
-        for _m in _re_pasivos.finditer(r'</?div[\s>]', html[_idx_costos:]):
-            _abs = _idx_costos + _m.start()
-            if _m.group().startswith('</'): _depth -= 1
-            else: _depth += 1
-            if _depth == 0:
-                _close_pos = _abs
-                break
-        if _close_pos and _close_pos < _idx_ps:
-            # pasivos está FUERA de view-costos: moverlo adentro
-            _pasivos_block = html[_idx_ps:_idx_pe_end]
-            html = html[:_idx_ps] + html[_idx_pe_end:]
-            # Recalcular cierre de view-costos
-            _depth2 = 0
-            _close_pos2 = None
-            for _m2 in _re_pasivos.finditer(r'</?div[\s>]', html[_idx_costos:]):
-                _abs2 = _idx_costos + _m2.start()
-                if _m2.group().startswith('</'): _depth2 -= 1
-                else: _depth2 += 1
-                if _depth2 == 0:
-                    _close_pos2 = _abs2
-                    break
-            if _close_pos2:
-                html = html[:_close_pos2] + '\n' + _pasivos_block + '\n</div><!-- /view-costos -->' + html[_close_pos2+len('</div>'):]
-                fixes_ok.append("Pasivos movido dentro de view-costos")
-            else:
-                fixes_fail.append("Pasivos: no se encontró cierre de view-costos")
-        elif _close_pos and _close_pos > _idx_pe_end:
-            fixes_ok.append("Pasivos (ya OK — dentro de view-costos)")
+                fixes_fail.append("Canvas graficas costos (no se encontro <table> antes de ctbody)")
         else:
-            fixes_ok.append("Pasivos (posicion OK)")
+            fixes_fail.append("Canvas graficas costos (ctbody no encontrado)")
+    elif canvas_pos5 > table_pos5:
+        # Gráficas están DESPUÉS de la tabla — extraerlas y moverlas antes
+        flex_start = html.rfind('<div style="display:flex', 0, canvas_pos5)
+        # El bloque termina después del canvas de barras
+        barras_pos = html.find('costos-barras-chart', canvas_pos5)
+        flex_end = html.find('</div>', barras_pos)
+        flex_end = html.find('</div>', flex_end+1)  # cierra el inner div
+        flex_end = html.find('</div>', flex_end+1)  # cierra el outer flex div
+        flex_end += len('</div>')
+        if flex_start > 0 and flex_end > flex_start:
+            canvas_block = html[flex_start:flex_end]
+            html = html[:flex_start] + html[flex_end:]
+            # Insertar antes del <table> de costos
+            table_pos5b = html.find(TABLE_ANCHOR5)
+            t_open = html.rfind('<table>', 0, table_pos5b)
+            if t_open > 0:
+                html = html[:t_open] + '\n' + canvas_block + '\n\n' + html[t_open:]
+                fixes_ok.append("Canvas graficas costos movido antes de tabla")
+            else:
+                fixes_fail.append("Canvas graficas costos (movido pero no se encontro tabla)")
+        else:
+            fixes_fail.append("Canvas graficas costos (no se pudo extraer bloque flex)")
     else:
-        fixes_fail.append("Pasivos: anchors no encontrados")
-
+        fixes_ok.append("Canvas graficas costos (ya OK — antes de tabla)")
 
     # FIX FLUJO: botones de mes, textos ENE-XXX y subtítulo Saldo Final
     # Determinar último mes con datos en FDATA
@@ -1068,7 +1003,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         html = _replace_var(html, 'COSTOS_OTROS_USD', json.dumps(_cou))
         fixes_ok.append("COSTOS_OTROS_USD actualizado")
 
-    # FIX COSTOS_TOTAL_USD: sumar otrosCostos al totalTotalUSD
+    # FIX COSTOS_TOTAL_USD: sumar otrosCostos al totalTotalUSD (acumulador)
     OLD_TOTAL = "    totalTotalUSD += d.usd_total||0;"
     NEW_TOTAL = "    totalTotalUSD += (d.usd_total||0) + otrosCostos;"
     if OLD_TOTAL in html:
@@ -1080,8 +1015,8 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         fixes_fail.append("totalTotalUSD (patron no encontrado)")
 
     # FIX COSTOS_ROW_USD: cada fila muestra usd_total + otrosCostos en columna Costo Total
-    OLD_ROW = """${showUSD ? fU(d.usd_total) : '\u2014'}</td>"""
-    NEW_ROW = """${showUSD ? fU((d.usd_total||0) + otrosCostos) : '\u2014'}</td>"""
+    OLD_ROW = "${showUSD ? fU(d.usd_total) : '—'}</td>"
+    NEW_ROW = "${showUSD ? fU((d.usd_total||0) + otrosCostos) : '—'}</td>"
     if OLD_ROW in html:
         html = html.replace(OLD_ROW, NEW_ROW, 1)
         fixes_ok.append("fila costos: Costo Total USD incluye otrosCostos")
