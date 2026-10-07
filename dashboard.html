@@ -1,3 +1,4 @@
+<!-- v9b -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -62,7 +63,7 @@ nav{position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid va
 .section{padding:40px 80px}
 .section-alt{background:var(--gray-100)}
 .sec-label{display:flex;align-items:center;gap:10px;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);margin-bottom:16px}
-.sec-label::before{content:'';display:block;width:32px;height:2px;background:var(--blue)}
+.sec-label::before{content:"";display:block;width:32px;height:2px;background:var(--blue)}
 .sec-title{font-size:2rem;font-weight:800;color:var(--navy);line-height:1.2;margin-bottom:8px}
 .sec-title em{color:var(--blue);font-style:normal}
 .sec-sub{font-size:.9rem;color:var(--gray-500);max-width:520px;margin-bottom:36px}
@@ -82,7 +83,7 @@ nav{position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid va
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:32px}
 .kpi-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .18s,box-shadow .18s}
 .kpi-card:hover{transform:translateY(-4px);box-shadow:0 8px 28px rgba(13,31,60,.14)}
-.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--blue))}
+.kpi-card::after{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--blue))}
 .kpi-icon-wrap{width:40px;height:40px;border-radius:10px;background:var(--icon-bg,rgba(31,91,166,.08));display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:1.2rem}
 .kpi-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--gray-500);margin-bottom:4px}
 .kpi-value{font-size:1.75rem;font-weight:800;color:var(--navy);line-height:1}
@@ -239,7 +240,7 @@ footer strong{color:#fff}
 #view-resumen .rs-sec-title{font-size:.68rem;font-weight:800;color:var(--gray-500);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #E2E8F0}
 #view-resumen .rs-kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
 #view-resumen .rs-kpi{background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #E2E8F0;position:relative;overflow:hidden}
-#view-resumen .rs-kpi::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--rsaccent,var(--blue))}
+#view-resumen .rs-kpi::before{content:"";position:absolute;top:0;left:0;width:4px;height:100%;background:var(--rsaccent,var(--blue))}
 #view-resumen .rs-kpi-label{font-size:.58rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 #view-resumen .rs-kpi-val{font-size:1.1rem;font-weight:800;color:var(--navy);line-height:1}
 #view-resumen .rs-kpi-sub{font-size:.6rem;color:#94A3B8;margin-top:3px}
@@ -1079,7 +1080,16 @@ footer strong{color:#fff}
     </div>
   </div>
 
-
+<script>
+function showRecursoMes(mes,btn){
+  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
+  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
+  var id=mes.replace('-','');
+  var el=document.getElementById('pasivo-recurso-'+id);
+  if(el)el.style.display='block';
+  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
+}
+</script>
 <!-- END HISTORIAL PASIVOS -->
 </div><!-- /view-costos -->
 
@@ -1110,7 +1120,7 @@ footer strong{color:#fff}
 #view-flujo .fmes-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 #view-flujo .fkpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
 #view-flujo .fkpi{background:#fff;border-radius:12px;padding:16px 18px;border:1px solid #E2E8F0;position:relative;overflow:hidden}
-#view-flujo .fkpi::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--faccent,var(--blue))}
+#view-flujo .fkpi::before{content:"";position:absolute;top:0;left:0;width:4px;height:100%;background:var(--faccent,var(--blue))}
 #view-flujo .fkpi-label{font-size:.62rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
 #view-flujo .fkpi-value{font-size:1.2rem;font-weight:800;color:var(--navy);line-height:1}
 #view-flujo .fkpi-sub{font-size:.63rem;color:#94A3B8;margin-top:4px}
@@ -2357,15 +2367,6 @@ window.addEventListener('load', function(){
   buildCostosTable();
   showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
 });
-
-function showRecursoMes(mes,btn){
-  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
-  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
-  var id=mes.replace('-','');
-  var el=document.getElementById('pasivo-recurso-'+id);
-  if(el)el.style.display='block';
-  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
-}
 </script>
 
 <!-- xlsx library removed -->
@@ -3292,7 +3293,16 @@ function rsRender(){
       months.map(function(m,i){
         var v=DATA[m]?DATA[m].hours:0;
         var w=maxHrsMes>0?(v/maxHrsMes*100).toFixed(0):0;
-        return '
+        return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
+          '<span style="font-size:.6rem;color:#64748B;width:28px;flex-shrink:0">'+m+'</span>'+
+          '<div style="flex:1;background:#F1F5F9;border-radius:3px;height:8px">'+
+            '<div style="width:'+w+'%;height:100%;border-radius:3px;background:#1F5BA6"></div>'+
+          '</div>'+
+          '<span style="font-size:.6rem;color:#475569;min-width:40px;text-align:right">'+v.toLocaleString('es-MX')+'</span>'+
+        '</div>';
+      }).join('');
+  }
+
   <div class="nav-right">
     <span class="badge-period">ENE – SEP 2026</span>
   </div>
@@ -3308,7 +3318,7 @@ function rsRender(){
 #view-resumen .rs-sec-title{font-size:.68rem;font-weight:800;color:var(--gray-500);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #E2E8F0}
 #view-resumen .rs-kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
 #view-resumen .rs-kpi{background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #E2E8F0;position:relative;overflow:hidden}
-#view-resumen .rs-kpi::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--rsaccent,var(--blue))}
+#view-resumen .rs-kpi::before{content:"";position:absolute;top:0;left:0;width:4px;height:100%;background:var(--rsaccent,var(--blue))}
 #view-resumen .rs-kpi-label{font-size:.58rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 #view-resumen .rs-kpi-val{font-size:1.1rem;font-weight:800;color:var(--navy);line-height:1}
 #view-resumen .rs-kpi-sub{font-size:.6rem;color:#94A3B8;margin-top:3px}
@@ -3780,11 +3790,7 @@ display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
 
 
 
-<!-- HISTORIAL PASIVOS SECTION -->
-<div class="section" style="margin:16px 0 0">
-  <div class="section-label">03 / HISTORIAL DE PASIVOS</div>
 
-<!-- END HISTORIAL PASIVOS -->
 </div><!-- /view-costos -->
 
 <div id="view-flujo" style="display:none">
@@ -3814,7 +3820,7 @@ display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
 #view-flujo .fmes-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 #view-flujo .fkpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
 #view-flujo .fkpi{background:#fff;border-radius:12px;padding:16px 18px;border:1px solid #E2E8F0;position:relative;overflow:hidden}
-#view-flujo .fkpi::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--faccent,var(--blue))}
+#view-flujo .fkpi::before{content:"";position:absolute;top:0;left:0;width:4px;height:100%;background:var(--faccent,var(--blue))}
 #view-flujo .fkpi-label{font-size:.62rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
 #view-flujo .fkpi-value{font-size:1.2rem;font-weight:800;color:var(--navy);line-height:1}
 #view-flujo .fkpi-sub{font-size:.63rem;color:#94A3B8;margin-top:4px}
@@ -5061,15 +5067,6 @@ window.addEventListener('load', function(){
   buildCostosTable();
   showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
 });
-
-function showRecursoMes(mes,btn){
-  document.querySelectorAll('[id^="pasivo-recurso-"]').forEach(function(el){el.style.display='none';});
-  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){b.style.background='#F1F5F9';b.style.color='#64748B';b.style.border='1px solid #CBD5E1';});
-  var id=mes.replace('-','');
-  var el=document.getElementById('pasivo-recurso-'+id);
-  if(el)el.style.display='block';
-  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.border='1px solid var(--blue)';}
-}
 </script>
 
 <!-- xlsx library removed -->
