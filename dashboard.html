@@ -566,46 +566,49 @@ footer strong{color:#fff}
 
   
 
-
-
-
-<!-- ===================== VIEW FLUJO DE CAJA ===================== -->
+  <div class="chart-card" style="padding:0;overflow:hidden">
+    <table style="table-layout:fixed;width:100%">
+      <colgroup>
+        <col style="width:200px">
+        <col style="width:120px"><col style="width:110px"><col style="width:120px">
+        <col style="width:120px"><col style="width:110px"><col style="width:32px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th class="num">Costo Hrs USD</th>
+          <th class="num">PERDIEM USD</th>
+          <th class="num">Otros Costos USD</th>
+          <th class="num">Costo Total USD</th>
+          <th class="num">Costo MXN</th>
+          <th style="width:32px"></th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>
+      <tfoot id="ctfoot"></tfoot>
+    </table>
+  </div>
 </div>
 
-<table>
-    <thead>
-      <tr>
-        <th style="min-width:200px">Mes</th>
-        <th class="num">Costo Hrs USD</th>
-        <th class="num">PERDIEM USD</th>
-        <th class="num">Otros Costos USD</th>
-        <th class="num">Costo Total USD</th>
-        <th class="num">Costo MXN</th>
-        <th style="width:32px"></th>
-      </tr>
-    </thead>
-    <tbody id="ctbody"></tbody>
-    <tfoot id="ctfoot"></tfoot>
-  </table>
+<div class="section section-alt">
+  <div class="sec-label">02 / ANÁLISIS GRÁFICO</div>
+  <h2 class="sec-title">Comportamiento <em>mensual</em></h2>
+  <p class="sec-sub">Evolución de costos y tendencia acumulada durante el período.</p>
+  <div style="display:flex;gap:20px">
 
-<div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
-
-  <!-- GRAFICA 1: Tendencia Mensual vs Acumulado -->
-  <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">
-    <div style="font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px">
-      <span style="color:#F59E0B;margin-right:6px">●</span>Tendencia Mensual vs Acumulado
+    <!-- GRAFICA 1: Tendencia Mensual vs Acumulado -->
+    <div class="chart-card" style="flex:1">
+      <div class="chart-title"><span class="dot" style="background:#F59E0B"></span>Tendencia Mensual vs Acumulado</div>
+      <canvas id="costos-tendencia-chart" height="110"></canvas>
     </div>
-    <canvas id="costos-tendencia-chart" height="110"></canvas>
-  </div>
 
-  <!-- GRAFICA 2: Total Costos por Mes -->
-  <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">
-    <div style="font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px">
-      <span style="color:#1F5BA6;margin-right:6px">●</span>Total de Costos por Mes (USD)
+    <!-- GRAFICA 2: Total Costos por Mes -->
+    <div class="chart-card" style="flex:1">
+      <div class="chart-title"><span class="dot" style="background:#1F5BA6"></span>Total de Costos por Mes (USD)</div>
+      <canvas id="costos-barras-chart" height="110"></canvas>
     </div>
-    <canvas id="costos-barras-chart" height="110"></canvas>
-  </div>
 
+  </div>
 </div>
 
 

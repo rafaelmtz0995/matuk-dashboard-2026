@@ -1388,6 +1388,58 @@ function rsBindTooltip(container, rowClass, dataArr, mode){
     else:
         fixes_fail.append('RS-BIND-TOOLTIP (no se pudo inyectar)')
 
+
+    # FIX COSTOS-TABLE-STRUCTURE: Meter tabla y graficas de costos dentro de view-costos con chart-card wrapper
+    _ct_old_marker = 'id="ctbody"'
+    _ct_new_marker = 'chart-card'
+    _ct_idx = html.find(_ct_old_marker)
+    if _ct_idx > 0:
+        _ct_pre = html[max(0,_ct_idx-300):_ct_idx]
+        if _ct_new_marker in _ct_pre:
+            fixes_ok.append('COSTOS-TABLE-STRUCTURE (ya OK - ctbody ya tiene chart-card wrapper)')
+        else:
+            # The table and graficas are outside view-costos - apply the fix
+            _CT_OLD_PAT = ('<table>\n    <thead>\n      <tr>\n'
+                           '        <th style="min-width:200px">Mes</th>\n'
+                           '        <th class="num">Costo Hrs USD</th>\n'
+                           '        <th class="num">PERDIEM USD</th>\n'
+                           '        <th class="num">Otros Costos USD</th>\n'
+                           '        <th class="num">Costo Total USD</th>\n'
+                           '        <th class="num">Costo MXN</th>\n'
+                           '        <th style="width:32px"></th>\n'
+                           '      </tr>\n    </thead>\n'
+                           '    <tbody id="ctbody"></tbody>\n'
+                           '    <tfoot id="ctfoot"></tfoot>\n  </table>')
+            _CT_NEW_PAT = (
+                '  <div class="chart-card" style="padding:0;overflow:hidden">\n'
+                '    <table style="table-layout:fixed;width:100%">\n'
+                '      <colgroup>\n'
+                '        <col style="width:200px">\n'
+                '        <col style="width:120px"><col style="width:110px"><col style="width:120px">\n'
+                '        <col style="width:120px"><col style="width:110px"><col style="width:32px">\n'
+                '      </colgroup>\n'
+                '      <thead><tr>\n'
+                '        <th>Mes</th>\n'
+                '        <th class="num">Costo Hrs USD</th>\n'
+                '        <th class="num">PERDIEM USD</th>\n'
+                '        <th class="num">Otros Costos USD</th>\n'
+                '        <th class="num">Costo Total USD</th>\n'
+                '        <th class="num">Costo MXN</th>\n'
+                '        <th style="width:32px"></th>\n'
+                '      </tr></thead>\n'
+                '      <tbody id="ctbody"></tbody>\n'
+                '      <tfoot id="ctfoot"></tfoot>\n'
+                '    </table>\n'
+                '  </div>\n'
+            )
+            if _CT_OLD_PAT in html:
+                html = html.replace(_CT_OLD_PAT, _CT_NEW_PAT)
+                fixes_ok.append('COSTOS-TABLE-STRUCTURE corregida (chart-card wrapper agregado)')
+            else:
+                fixes_fail.append('COSTOS-TABLE-STRUCTURE (patron tabla no encontrado)')
+    else:
+        fixes_fail.append('COSTOS-TABLE-STRUCTURE (ctbody no encontrado)')
+
     return html
 
 
