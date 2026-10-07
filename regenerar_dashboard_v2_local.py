@@ -1337,6 +1337,57 @@ def actualizar_pasivo_html(html, cierres, detalle, vivo):
         else:
             fixes_fail.append(f'DUPLICATE-BLOCK (patron no encontrado, view-resumen count={_dup_count})')
 
+
+    # FIX RS-BIND-TOOLTIP: Restaurar función rsBindTooltip eliminada con bloque duplicado
+    _RS_INIT_MARKER = '<script>\n// Inicialización directa'
+    _RS_FN_MARKER = 'function rsBindTooltip('
+    if _RS_FN_MARKER not in html and _RS_INIT_MARKER in html:
+        _rs_script = """<script>
+function rsBindTooltip(container, rowClass, dataArr, mode){
+  if(!container) return;
+  function showTT(e, row){
+    var tt=document.getElementById('rs-tooltip'); if(!tt) return;
+    var idx=parseInt(row.getAttribute('data-ttidx'),10);
+    var d=dataArr[idx]; if(!d) return;
+    var valColor = mode==='egr'?'#EF9090':'#6EE7B7';
+    var mrows = d.mdata.map(function(r){
+      return '<div class=\"tt-row\"><span class=\"tt-lbl\">'+r.m+'</span><span class=\"tt-val\" style=\"color:'+valColor+'\">'+fmtKRs(r.v)+'</span></div>';
+    }).join('');
+    tt.innerHTML='<div class=\"tt-title\">'+d.title+'</div>'+
+      '<div class=\"tt-row\"><span class=\"tt-lbl\">Total YTD</span><span class=\"tt-val\">'+d.total+'</span></div>'+
+      '<div class=\"tt-row\"><span class=\"tt-lbl\">Participación</span><span class=\"tt-val\">'+d.pct+'</span></div>'+
+      (mrows?'<div style=\"border-top:1px solid rgba(255,255,255,.1);margin-top:5px;padding-top:5px\">'+mrows+'</div>':'');
+    tt.style.display='block';
+    tt.style.left=(e.clientX+14)+'px';
+    tt.style.top=(e.clientY-10)+'px';
+    var ttW=tt.offsetWidth,ttH=tt.offsetHeight;
+    if(e.clientX+14+ttW>window.innerWidth) tt.style.left=(e.clientX-ttW-10)+'px';
+    if(e.clientY-10+ttH>window.innerHeight) tt.style.top=(e.clientY-ttH)+'px';
+  }
+  container.addEventListener('mouseover',function(e){
+    var row=e.target.closest('.'+rowClass); if(!row) return;
+    showTT(e,row);
+  });
+  container.addEventListener('mousemove',function(e){
+    var row=e.target.closest('.'+rowClass); if(!row) return;
+    showTT(e,row);
+  });
+  container.addEventListener('mouseout',function(e){
+    var row=e.target.closest('.'+rowClass);
+    if(row&&!row.contains(e.relatedTarget)){
+      var tt=document.getElementById('rs-tooltip'); if(tt) tt.style.display='none';
+    }
+  });
+}
+</script>
+"""
+        html = html.replace(_RS_INIT_MARKER, _rs_script + _RS_INIT_MARKER)
+        fixes_ok.append('RS-BIND-TOOLTIP restaurado (función inyectada antes del init script)')
+    elif _RS_FN_MARKER in html:
+        fixes_ok.append('RS-BIND-TOOLTIP (ya OK)')
+    else:
+        fixes_fail.append('RS-BIND-TOOLTIP (no se pudo inyectar)')
+
     return html
 
 

@@ -3307,6 +3307,44 @@ function rsRender(){
 }
 </script>
 <script>
+function rsBindTooltip(container, rowClass, dataArr, mode){
+  if(!container) return;
+  function showTT(e, row){
+    var tt=document.getElementById('rs-tooltip'); if(!tt) return;
+    var idx=parseInt(row.getAttribute('data-ttidx'),10);
+    var d=dataArr[idx]; if(!d) return;
+    var valColor = mode==='egr'?'#EF9090':'#6EE7B7';
+    var mrows = d.mdata.map(function(r){
+      return '<div class="tt-row"><span class="tt-lbl">'+r.m+'</span><span class="tt-val" style="color:'+valColor+'">'+fmtKRs(r.v)+'</span></div>';
+    }).join('');
+    tt.innerHTML='<div class="tt-title">'+d.title+'</div>'+
+      '<div class="tt-row"><span class="tt-lbl">Total YTD</span><span class="tt-val">'+d.total+'</span></div>'+
+      '<div class="tt-row"><span class="tt-lbl">Participación</span><span class="tt-val">'+d.pct+'</span></div>'+
+      (mrows?'<div style="border-top:1px solid rgba(255,255,255,.1);margin-top:5px;padding-top:5px">'+mrows+'</div>':'');
+    tt.style.display='block';
+    tt.style.left=(e.clientX+14)+'px';
+    tt.style.top=(e.clientY-10)+'px';
+    var ttW=tt.offsetWidth,ttH=tt.offsetHeight;
+    if(e.clientX+14+ttW>window.innerWidth) tt.style.left=(e.clientX-ttW-10)+'px';
+    if(e.clientY-10+ttH>window.innerHeight) tt.style.top=(e.clientY-ttH)+'px';
+  }
+  container.addEventListener('mouseover',function(e){
+    var row=e.target.closest('.'+rowClass); if(!row) return;
+    showTT(e,row);
+  });
+  container.addEventListener('mousemove',function(e){
+    var row=e.target.closest('.'+rowClass); if(!row) return;
+    showTT(e,row);
+  });
+  container.addEventListener('mouseout',function(e){
+    var row=e.target.closest('.'+rowClass);
+    if(row&&!row.contains(e.relatedTarget)){
+      var tt=document.getElementById('rs-tooltip'); if(tt) tt.style.display='none';
+    }
+  });
+}
+</script>
+<script>
 // Inicialización directa - todos los scripts previos ya se ejecutaron
 try {
   if (typeof showTab === 'function') {
