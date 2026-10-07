@@ -2360,12 +2360,15 @@ function clearCostosSearch(){
 
 
 window.addEventListener('load', function(){
-  showTab('resumen');
-  initCharts();
-  filter('TODOS');
-  buildCostosKPIs();
-  buildCostosTable();
-  showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
+  setTimeout(function(){
+    showTab('resumen');
+    if(typeof initCharts==='function') initCharts();
+    if(typeof filter==='function') filter('TODOS');
+    if(typeof buildCostosKPIs==='function') buildCostosKPIs();
+    if(typeof buildCostosTable==='function') buildCostosTable();
+    var pbtn=document.getElementById('pbtn-jul');
+    if(typeof showPasivoMes==='function'&&pbtn) showPasivoMes('jul-26',pbtn);
+  }, 50);
 });
 </script>
 
@@ -5060,12 +5063,7 @@ function clearCostosSearch(){
 
 
 window.addEventListener('load', function(){
-  showTab('resumen');
-  initCharts();
-  filter('TODOS');
-  buildCostosKPIs();
-  buildCostosTable();
-  showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
+  // duplicate handler - handled by first script block
 });
 </script>
 
