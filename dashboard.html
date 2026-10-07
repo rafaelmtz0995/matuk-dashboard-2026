@@ -6141,5 +6141,27 @@ function rsBindTooltip(container, rowClass, dataArr, mode){
 }
 
 </script>
+
+<script>
+// Inicialización automática del dashboard
+(function() {
+  function init() {
+    if (typeof showTab === 'function') {
+      showTab('resumen');
+      if (typeof initCharts === 'function') initCharts();
+      if (typeof filter === 'function') filter('TODOS');
+      if (typeof buildCostosKPIs === 'function') buildCostosKPIs();
+      if (typeof buildCostosTable === 'function') buildCostosTable();
+      var pbtn = document.getElementById('pbtn-jul');
+      if (typeof showPasivoMes === 'function' && pbtn) showPasivoMes('jul-26', pbtn);
+    }
+  }
+  if (document.readyState === 'complete') {
+    init();
+  } else {
+    window.addEventListener('load', init);
+  }
+})();
+</script>
 </body>
 </html>
