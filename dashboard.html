@@ -2359,13 +2359,14 @@ function clearCostosSearch(){
 }
 
 
-window.addEventListener('load', function(){
+window.addEventListener('DOMContentLoaded', function(){
   showTab('resumen');
-  initCharts();
-  filter('TODOS');
-  buildCostosKPIs();
-  buildCostosTable();
-  showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
+  if(typeof initCharts==='function') initCharts();
+  if(typeof filter==='function') filter('TODOS');
+  if(typeof buildCostosKPIs==='function') buildCostosKPIs();
+  if(typeof buildCostosTable==='function') buildCostosTable();
+  var pbtn=document.getElementById('pbtn-jul');
+  if(typeof showPasivoMes==='function'&&pbtn) showPasivoMes('jul-26',pbtn);
 });
 </script>
 
@@ -5060,12 +5061,7 @@ function clearCostosSearch(){
 
 
 window.addEventListener('load', function(){
-  showTab('resumen');
-  initCharts();
-  filter('TODOS');
-  buildCostosKPIs();
-  buildCostosTable();
-  showPasivoMes('jul-26', document.getElementById('pbtn-jul'));
+  // duplicate handler - handled by first script block
 });
 </script>
 
@@ -6140,6 +6136,25 @@ function rsBindTooltip(container, rowClass, dataArr, mode){
   });
 }
 
+</script>
+
+<script>
+// Inicialización directa - todos los scripts previos ya se ejecutaron
+try {
+  if (typeof showTab === 'function') {
+    showTab('resumen');
+    if (typeof initCharts === 'function') initCharts();
+    if (typeof filter === 'function') filter('TODOS');
+    if (typeof buildCostosKPIs === 'function') buildCostosKPIs();
+    if (typeof buildCostosTable === 'function') buildCostosTable();
+    var _pbtn = document.getElementById('pbtn-jul');
+    if (typeof showPasivoMes === 'function' && _pbtn) showPasivoMes('jul-26', _pbtn);
+  } else {
+    document.body.insertAdjacentHTML('afterbegin','<div style="background:red;color:white;padding:20px;font-size:18px;position:fixed;top:0;left:0;right:0;z-index:99999">ERROR: showTab no definida. Funciones disponibles: showTab='+typeof showTab+', rsRender='+typeof rsRender+'</div>');
+  }
+} catch(e) {
+  document.body.insertAdjacentHTML('afterbegin','<div style="background:red;color:white;padding:20px;font-size:18px;position:fixed;top:0;left:0;right:0;z-index:99999">ERROR INIT: '+e.message+'</div>');
+}
 </script>
 </body>
 </html>
