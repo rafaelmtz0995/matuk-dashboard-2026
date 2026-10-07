@@ -507,7 +507,7 @@ MARCA_INI = "// ─── AUTO-GENERADO POR regenerar_dashboard_v2.py"
 MARCA_FIN = "// ─── FIN DATOS AUTO-GENERADOS"
 
 def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
-                    horas_data, breakdown, costos, fdata, fegr_extra=None):
+                    horas_data, breakdown, costos, fdata, fegr_extra=None, saldo_dia=None):
     if not os.path.exists(OUTPUT_HTML):
         print(f"ERROR: {OUTPUT_HTML}"); sys.exit(1)
 
@@ -576,6 +576,9 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
             else:
                 costos_mes_simple[m]={'horas_usd':0,'total_usd':0,'total_mxn':0}
         L.append("var FCOSTOS_MES = "+json.dumps(costos_mes_simple,ensure_ascii=False)+";")
+        # SALDO_DIA: saldo diario de bancos desde CONCENTRADO
+        if saldo_dia:
+            L.append("var SALDO_DIA = "+json.dumps(saldo_dia, ensure_ascii=False)+";")
         # FEGR_EXTRA no va en el bloque — se actualiza via _replace_var abajo
 
         bloque = MARCA_INI+"\n"+"\n".join(L)+"\n"+MARCA_FIN
@@ -1554,7 +1557,134 @@ function fmtKRs(v){
     else:
         fixes_fail.append('COSTOS-TABLE-STRUCTURE (ctbody no encontrado)')
 
+
+    # FIX SALDO-DIA: Agregar función fRenderSaldoDia() y llamarla desde fRenderAll()
+    _saldo_marker = 'function fRenderSaldoDia()'
+    _frender_call = 'fRenderSaldoDia()'
+    if _saldo_marker not in html:
+        # Build the JS render function
+        _saldo_fn = """
+function fRenderSaldoDia(){
+  if(typeof SALDO_DIA === 'undefined') return;
+  var s = SALDO_DIA;
+  // fecha
+  var elFecha = document.getElementById('flujo-saldo-fecha');
+  if(elFecha) elFecha.textContent = s.fecha ? 'al ' + s.fecha : '';
+  // total
+  var elTotal = document.getElementById('flujo-saldo-total');
+  if(elTotal){
+    var t = s.total || 0;
+    var tFmt;
+    if(t>=1e6) tFmt='$'+(t/1e6).toFixed(2).replace(/\\.?0+$/,'')+'M';
+    else if(t>=1e3) tFmt='$'+(t/1e3).toFixed(0)+'K';
+    else tFmt='$'+t.toFixed(0);
+    elTotal.textContent = tFmt;
+  }
+  // bank cards
+  var elBanks = document.getElementById('flujo-saldo-banks');
+  if(!elBanks || !s.banks) return;
+  var bankDefs = [
+    {key:'Vs BBVA pesos', label:'BBVA Pesos', isMXN:true},
+    {key:'Vs BBVA USD',   label:'BBVA USD',   isMXN:false},
+    {key:'BMX USD',       label:'BMX USD',    isMXN:false},
+    {key:'BMXQRO MN',     label:'BMX QRO MN', isMXN:true},
+    {key:'BANAMEX MN',    label:'Banamex MN', isMXN:true}
+  ];
+  var cards = bankDefs.map(function(b){
+    var v = s.banks[b.key] || 0;
+    var vFmt;
+    if(v>=1e6) vFmt='$'+(v/1e6).toFixed(1)+'M';
+    else if(v>=1e3) vFmt='$'+(v/1e3).toFixed(0)+'K';
+    else vFmt='$'+Math.round(v);
+    var sub = b.isMXN ? 'MXN' : 'MXN equiv.';
+    return '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:7px 9px">'
+      +'<div style="font-size:.52rem;font-weight:700;color:#93C5FD;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+b.label+'</div>'
+      +'<div style="font-size:.72rem;font-weight:800;color:#fff;white-space:nowrap">'+vFmt+'</div>'
+      +'<div style="font-size:.5rem;color:#64748B;margin-top:1px">'+sub+'</div>'
+      +'</div>';
+  });
+  elBanks.innerHTML = cards.join('');
+}"""
+        # Insert fRenderSaldoDia right before fRenderAll
+        _target = 'function fRenderAll(){'
+        if _target in html:
+            html = html.replace(_target, _saldo_fn + '\nfunction fRenderAll(){', 1)
+            fixes_ok.append('SALDO-DIA (fRenderSaldoDia inyectada)')
+        else:
+            fixes_fail.append('SALDO-DIA (fRenderAll no encontrada)')
+    else:
+        fixes_ok.append('SALDO-DIA (fRenderSaldoDia ya OK)')
+
+    # Add call to fRenderSaldoDia in fRenderAll if not there
+    _frender_body_old = 'function fRenderAll(){'
+    _frender_call_pat = 'fRenderSaldoDia();'
+    if _frender_body_old in html and _frender_call_pat not in html:
+        # Find fRenderAll body and add call at the start
+        _old_frender_first = 'function fRenderAll(){
+  fRenderKPIs();'
+        _new_frender_first = 'function fRenderAll(){
+  fRenderSaldoDia();
+  fRenderKPIs();'
+        if _old_frender_first in html:
+            html = html.replace(_old_frender_first, _new_frender_first, 1)
+            fixes_ok.append('SALDO-DIA (fRenderAll actualizada)')
+        else:
+            fixes_fail.append('SALDO-DIA (fRenderAll body patron no encontrado)')
+    elif _frender_call_pat in html:
+        fixes_ok.append('SALDO-DIA (fRenderAll call ya OK)')
+
     return html
+
+
+# ── SALDO DIA desde CONCENTRADO (Flujo de Caja) ──────────────────────────────
+def extraer_saldo_dia():
+    """Lee el último saldo diario de bancos desde la hoja CONCENTRADO."""
+    print("  SALDO_DIA (CONCENTRADO)...")
+    wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
+    ws = wb['CONCENTRADO']
+    bank_labels = {'Vs BBVA pesos', 'Vs BBVA USD', 'BMX USD', 'BMXQRO MN', 'BANAMEX MN'}
+    current_date = None
+    last_date = None
+    last_saldo = None
+    last_banks = {}
+    reading_banks = False
+    for row in ws.iter_rows(values_only=True, max_col=15):
+        if row[1] and 'POSICION DIARIA' in str(row[1]):
+            current_date = row[3]
+            reading_banks = False
+        if row[11] is not None and str(row[11]).strip() == 'SALDO' and row[12] is not None:
+            try:
+                last_saldo = float(row[12])
+                last_date = current_date
+                last_banks = {}
+                reading_banks = True
+            except (TypeError, ValueError):
+                pass
+        elif reading_banks and row[11] is not None:
+            label = str(row[11]).strip()
+            if label in bank_labels:
+                try:
+                    last_banks[label] = float(row[12]) if row[12] is not None else 0.0
+                except (TypeError, ValueError):
+                    last_banks[label] = 0.0
+            elif label == '' or label == 'SALDO':
+                pass  # skip blank or next SALDO header
+    wb.close()
+    # Format date
+    fecha_str = ''
+    if last_date:
+        import datetime as _dt
+        if isinstance(last_date, (_dt.date, _dt.datetime)):
+            fecha_str = last_date.strftime('%-d-%b-%Y')
+        else:
+            fecha_str = str(last_date)
+    result = {
+        'fecha': fecha_str,
+        'total': round(last_saldo, 2) if last_saldo else 0.0,
+        'banks': {k: round(v, 2) for k, v in last_banks.items()}
+    }
+    print(f"  SALDO_DIA: fecha={result['fecha']}, total=${result['total']:,.2f}, bancos={list(result['banks'].keys())}")
+    return result
 
 
 def main():
@@ -1573,6 +1703,7 @@ def main():
     costos                  = extraer_costos(tc_mes)
     cierres, detalle, vivo  = extraer_pasivo()
     fegr_extra              = extraer_fegr_extra()
+    saldo_dia               = extraer_saldo_dia()
 
     print()
     for m in MESES:
@@ -1583,7 +1714,7 @@ def main():
 
     # Actualizar DATA, FDATA, COSTOS, BREAKDOWN, FCLIENTES, etc. en el HTML
     actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
-                    horas_data, breakdown, costos, fdata, fegr_extra)
+                    horas_data, breakdown, costos, fdata, fegr_extra, saldo_dia=saldo_dia)
 
     # Actualizar sección HISTORIAL PASIVOS (hardcodeada en HTML)
     print("  Aplicando datos de HISTORIAL PASIVOS...")
