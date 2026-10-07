@@ -1144,47 +1144,38 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
 
 
 
-    # FIX PASIVOS-CONST-2: cambiar segunda declaracion 'const PASIVOS' a 'var PASIVOS'
-    # La regeneracion inserta 'const PASIVOS' dos veces (una por cada bloque duplicado).
-    # En el mismo scope JS no se puede declarar const dos veces → SyntaxError L4xxx.
-    # La solucion es cambiar la segunda instancia a 'var' que si permite redeclaracion.
-    _pc_idx1 = html.find('const PASIVOS')
-    if _pc_idx1 >= 0:
-        _pc_idx2 = html.find('const PASIVOS', _pc_idx1 + 1)
-        if _pc_idx2 >= 0:
-            html = html[:_pc_idx2] + 'var PASIVOS' + html[_pc_idx2 + len('const PASIVOS'):]
-            fixes_ok.append('PASIVOS-CONST-2 corregido (const→var)')
+    # FIX DETALLE-RECURSO-2: eliminar COMPLETAMENTE la segunda instancia del DETALLE POR RECURSO
+    # La segunda instancia (dentro del bloque del script sin cerrar en Chrome) tiene 64 lineas de HTML
+    # que exceden el threshold de Chrome (~702 lineas). La solucion correcta es eliminarla por completo.
+    # La primera instancia (fuera del script, en L721) conserva sus datos estaticos y es la que se muestra.
+    # Eliminar la segunda instancia reduce el conteo de ~735 a ~672 lineas (bien por debajo del umbral de 702).
+    _DR_MARKER = '  <!-- DETALLE POR RECURSO -->'
+    _DR_MARKER2 = '<!-- DETALLE POR RECURSO -->'  # variante sin indentacion
+    _idx1 = html.find(_DR_MARKER)
+    if _idx1 < 0:
+        _idx1 = html.find(_DR_MARKER2)
+    _idx2 = -1
+    if _idx1 >= 0:
+        # Buscar segunda instancia con ambas variantes
+        _idx2a = html.find(_DR_MARKER, _idx1+1)
+        _idx2b = html.find(_DR_MARKER2, _idx1+1)
+        if _idx2a >= 0 and _idx2b >= 0:
+            _idx2 = min(_idx2a, _idx2b)
+        elif _idx2a >= 0:
+            _idx2 = _idx2a
+        elif _idx2b >= 0:
+            _idx2 = _idx2b
+    if _idx2 >= 0:
+        _end_marker = '<!-- END HISTORIAL PASIVOS -->'
+        _idx_end = html.find(_end_marker, _idx2)
+        if _idx_end >= 0:
+            # Eliminar desde la segunda instancia hasta END_MARKER (sin incluir END_MARKER)
+            html = html[:_idx2] + html[_idx_end:]
+            fixes_ok.append('DETALLE-RECURSO-2 eliminado')
         else:
-            fixes_ok.append('PASIVOS-CONST-2 (solo una instancia - OK)')
+            fixes_fail.append('DETALLE-RECURSO-2 (END marker no encontrado)')
     else:
-        fixes_fail.append('PASIVOS-CONST-2 (const PASIVOS no encontrado)')
-
-    # FIX HISTORIAL-PASIVOS-2: eliminar COMPLETAMENTE la segunda seccion de HISTORIAL PASIVOS
-    # La segunda instancia (dentro del bloque del return ' sin cerrar en Chrome) tiene ~375 lineas de HTML
-    # que son la causa raiz del SyntaxError L3295. El threshold de Chrome es ~702 lineas.
-    # Sin esta seccion el bloque queda en ~478 lineas (bien por debajo del umbral).
-    # La primera instancia (fuera del script, antes de L721) conserva sus datos y es la que se muestra.
-    # IMPORTANTE: Se elimina desde <!-- HISTORIAL PASIVOS SECTION --> hasta <!-- END HISTORIAL PASIVOS -->
-    # incluyendo el <script> de showRecursoMes que esta dentro de esa seccion.
-    _HP_MARKER = '<!-- HISTORIAL PASIVOS SECTION -->'
-    _HP_END = '<!-- END HISTORIAL PASIVOS -->'
-    _hp1 = html.find(_HP_MARKER)
-    _hp2 = -1
-    if _hp1 >= 0:
-        _hp2 = html.find(_HP_MARKER, _hp1 + 1)
-    if _hp2 >= 0:
-        # Hay dos instancias - eliminar la segunda completa (incluyendo END marker)
-        _hp_end_idx = html.find(_HP_END, _hp2)
-        if _hp_end_idx >= 0:
-            _hp_end_full = _hp_end_idx + len(_HP_END)
-            html = html[:_hp2] + html[_hp_end_full:]
-            fixes_ok.append('HISTORIAL-PASIVOS-2 eliminado')
-        else:
-            fixes_fail.append('HISTORIAL-PASIVOS-2 (END marker no encontrado)')
-    elif _hp1 >= 0:
-        fixes_ok.append('HISTORIAL-PASIVOS-2 (segunda instancia ya no existe - OK)')
-    else:
-        fixes_fail.append('HISTORIAL-PASIVOS-2 (marker HISTORIAL PASIVOS SECTION no encontrado)')
+        fixes_ok.append('DETALLE-RECURSO-2 (segunda instancia ya no existe - OK)')
 
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
@@ -1325,6 +1316,27 @@ def actualizar_pasivo_html(html, cierres, detalle, vivo):
     )
 
     print(f"    OK HISTORIAL PASIVOS actualizado — meses: {[MES_LABEL[m] for m in orden_meses if m in cierres]}")
+
+    # FIX DUPLICATE-BLOCK: Eliminar bloque duplicado (segunda copia de todas las views)
+    # El bloque duplicado empieza con '<div class="nav-right">' huérfano y termina antes del init script
+    # Se busca el patron: </script> seguido de la nav-right huérfana + </nav> + view-resumen duplicado
+    import re as _re
+    _DUP_PATTERN = r'(</script>
+)
+  <div class=nav-right>.*?(?=<script>
+// Inicialización directa)'
+    _dup_match = _re.search(_DUP_PATTERN, html, flags=_re.DOTALL)
+    if _dup_match:
+        html = html[:_dup_match.start()] + _dup_match.group(1) + html[_dup_match.end():]
+        fixes_ok.append('DUPLICATE-BLOCK eliminado (segundo set de views + nav huérfano)')
+    else:
+        # Already clean or different structure - check if duplicate view-resumen exists
+        _dup_count = html.count('<div id=view-resumen>')
+        if _dup_count == 1:
+            fixes_ok.append('DUPLICATE-BLOCK (ya OK - solo 1 view-resumen)')
+        else:
+            fixes_fail.append(f'DUPLICATE-BLOCK (patron no encontrado, view-resumen count={_dup_count})')
+
     return html
 
 
