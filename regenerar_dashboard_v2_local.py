@@ -1388,6 +1388,120 @@ function rsBindTooltip(container, rowClass, dataArr, mode){
     else:
         fixes_fail.append('RS-BIND-TOOLTIP (no se pudo inyectar)')
 
+    # FIX RS-CANVAS-CHART: Restaurar código de dibujo del canvas "Ingresos vs Egresos por Mes"
+    # El bloque de dibujo estaba al final de rsRender() y se perdió al eliminar el bloque duplicado
+    _CANVAS_MARKER = '// ====== MINI CHART: Ing vs Egr barras ======'
+    _RS_RENDER_CLOSE = 'function fmtKRs(v){'
+    if _CANVAS_MARKER not in html and _RS_RENDER_CLOSE not in html:
+        # Find closing "}" of rsRender - it's right after the rs-ops section closes
+        # The rs-ops section ends with "  }" then the outer "}" closes rsRender
+        # We look for the pattern: "  }
+}" followed by "
+</script>"
+        import re as _re_canvas
+        # Pattern: close of inner block "  }" + close of rsRender "}" + </script>
+        _canvas_drawing = """
+  // ====== MINI CHART: Ing vs Egr barras ======
+  const canvas = document.getElementById('rs-canvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.parentElement.clientWidth - 40;
+  const H = canvas.height = 160;
+  ctx.clearRect(0,0,W,H);
+  const padL=40,padR=8,padT=16,padB=28;
+  const data = months.map(function(m){ return {m:m,ing:FDATA[m]?FDATA[m].ing_mx:0,egr:FDATA[m]?FDATA[m].egr_mx:0}; });
+  const maxV = Math.max.apply(null, data.map(function(d){ return Math.max(d.ing,d.egr); }));
+  const scY = (H-padT-padB)/maxV;
+  const slotW = (W-padL-padR)/data.length;
+  const bw = slotW*0.35;
+  // Grid lines
+  ctx.strokeStyle='#F1F5F9'; ctx.lineWidth=1;
+  [0.25,0.5,0.75,1].forEach(function(f){
+    const y=H-padB-f*(H-padT-padB);
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
+    ctx.fillStyle='#CBD5E1'; ctx.font='9px system-ui'; ctx.textAlign='right';
+    ctx.fillText('$'+(maxV*f/1e6).toFixed(0)+'M',padL-3,y+3);
+  });
+  data.forEach(function(d,i){
+    const x = padL + i*slotW + slotW/2;
+    const hi = d.ing*scY, he = d.egr*scY;
+    const yi = H-padB-hi, ye = H-padB-he;
+    ctx.fillStyle='rgba(5,150,105,0.85)';
+    ctx.beginPath(); ctx.roundRect(x-bw-1,yi,bw,hi,2); ctx.fill();
+    ctx.fillStyle='rgba(220,38,38,0.75)';
+    ctx.beginPath(); ctx.roundRect(x+1,ye,bw,he,2); ctx.fill();
+    ctx.fillStyle='#64748B'; ctx.font='8px system-ui'; ctx.textAlign='center';
+    ctx.fillText(d.m,x,H-padB+10);
+  });
+  // Legend
+  ctx.fillStyle='rgba(5,150,105,0.85)'; ctx.fillRect(padL,H-4,10,4);
+  ctx.fillStyle='#475569'; ctx.font='9px system-ui'; ctx.textAlign='left';
+  ctx.fillText('Ingresos',padL+12,H-1);
+  ctx.fillStyle='rgba(220,38,38,0.75)'; ctx.fillRect(padL+70,H-4,10,4);
+  ctx.fillText('Egresos',padL+83,H-1);
+  // Hover tooltip
+  var rsBarRegions = data.map(function(d,i){
+    const x = padL + i*slotW + slotW/2;
+    const hi = d.ing*scY, he = d.egr*scY;
+    const util = d.ing - d.egr;
+    return {m:d.m, ing:d.ing, egr:d.egr, util:util,
+            x1:x-bw-1, x2:x+bw+1+bw+1, y1:padT, y2:H-padB, cx:x};
+  });
+  var rsBarsData = {regions:rsBarRegions, canvas:canvas, padL:padL, padR:padR, padT:padT, padB:padB};
+  canvas._rsData = rsBarsData;
+  if(canvas._rsMoveHandler) canvas.removeEventListener('mousemove', canvas._rsMoveHandler);
+  if(canvas._rsLeaveHandler) canvas.removeEventListener('mouseleave', canvas._rsLeaveHandler);
+  canvas._rsMoveHandler = function(e){
+    var tt = document.getElementById('rs-tooltip');
+    if(!tt) return;
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var cx = (e.clientX - rect.left) * scaleX;
+    var found = null;
+    rsBarRegions.forEach(function(r){ if(cx>=r.x1-4 && cx<=r.x2+4) found=r; });
+    if(found){
+      var util = found.util;
+      var margin = found.ing>0?(util/found.ing*100).toFixed(1)+'%':'—';
+      var clsU = util>=0?'tt-pos':'tt-neg';
+      tt.innerHTML =
+        '<div class="tt-title">'+found.m+' 2026</div>'+
+        '<div class="tt-row"><span class="tt-lbl">Ingresos</span><span class="tt-val tt-pos">'+fmtKRs(found.ing)+'</span></div>'+
+        '<div class="tt-row"><span class="tt-lbl">Egresos</span><span class="tt-val tt-neg">'+fmtKRs(found.egr)+'</span></div>'+
+        '<div class="tt-row" style="border-top:1px solid rgba(255,255,255,.1);margin-top:4px;padding-top:4px"><span class="tt-lbl">Liquidez</span><span class="tt-val '+clsU+'">'+fmtKRs(util)+'</span></div>'+
+        '<div class="tt-row"><span class="tt-lbl">% Liquidez Mensual</span><span class="tt-val '+clsU+'">'+margin+'</span></div>';
+      tt.style.display='block';
+      tt.style.left=(e.clientX+14)+'px';
+      tt.style.top=(e.clientY-10)+'px';
+      var ttW=tt.offsetWidth, ttH=tt.offsetHeight;
+      if(e.clientX+14+ttW>window.innerWidth) tt.style.left=(e.clientX-ttW-10)+'px';
+      if(e.clientY-10+ttH>window.innerHeight) tt.style.top=(e.clientY-ttH)+'px';
+    } else {
+      tt.style.display='none';
+    }
+  };
+  canvas._rsLeaveHandler = function(){
+    var tt=document.getElementById('rs-tooltip'); if(tt) tt.style.display='none';
+  };
+  canvas.addEventListener('mousemove', canvas._rsMoveHandler);
+  canvas.addEventListener('mouseleave', canvas._rsLeaveHandler);
+"""
+        _fmtKRs_fn = """
+function fmtKRs(v){
+  if(Math.abs(v)>=1e6) return (v<0?'-':'')+'$'+(Math.abs(v)/1e6).toFixed(1)+'M';
+  if(Math.abs(v)>=1e3) return (v<0?'-':'')+'$'+(Math.abs(v)/1e3).toFixed(0)+'K';
+  return (v<0?'-':'')+'$'+Math.abs(v).toFixed(0);
+}"""
+        # Find end of rsRender: "  }\n}" immediately before "\n</script>"
+        _old_rs_end = '  }\n}\n</script>'
+        _new_rs_end = '  }' + _canvas_drawing + '\n}\n' + _fmtKRs_fn + '\n</script>'
+        if _old_rs_end in html:
+            html = html.replace(_old_rs_end, _new_rs_end, 1)
+            fixes_ok.append('RS-CANVAS-CHART (inyectado)')
+        else:
+            fixes_fail.append('RS-CANVAS-CHART (patron no encontrado)')
+    else:
+        fixes_ok.append('RS-CANVAS-CHART (ya OK)')
+
 
     # FIX COSTOS-TABLE-STRUCTURE: Meter tabla y graficas de costos dentro de view-costos con chart-card wrapper
     _ct_old_marker = 'id="ctbody"'
