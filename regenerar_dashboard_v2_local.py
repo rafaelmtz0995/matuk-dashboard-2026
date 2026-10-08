@@ -1626,6 +1626,21 @@ function fRenderSaldoDia(){
     elif _frender_call_pat in html:
         fixes_ok.append('SALDO-DIA (fRenderAll call ya OK)')
 
+    # FIX DIV-BALANCE-COSTOS: La seccion section-alt de Costos no tiene cierre
+    # Esto causa que view-flujo quede anidado dentro de view-costos en el browser
+    _historial_marker = '<!-- HISTORIAL PASIVOS SECTION -->'
+    _section_alt_close = '</div><!-- /section-alt -->'
+    if _historial_marker in html:
+        _idx_historial = html.find(_historial_marker)
+        _preceding = html[max(0, _idx_historial-200):_idx_historial]
+        if _section_alt_close not in _preceding:
+            html = html.replace(_historial_marker, _section_alt_close + '\n' + _historial_marker, 1)
+            fixes_ok.append('DIV-BALANCE-COSTOS (section-alt cerrada)')
+        else:
+            fixes_ok.append('DIV-BALANCE-COSTOS (ya OK)')
+    else:
+        fixes_fail.append('DIV-BALANCE-COSTOS (marker no encontrado)')
+
     return html
 
 
