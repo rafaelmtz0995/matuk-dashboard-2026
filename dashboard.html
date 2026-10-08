@@ -2709,8 +2709,8 @@ function fRenderLineSaldo(){
 }
 
 
-function var SALDO_DIA = {fecha: null, total: 0, banks: {}};
-fRenderSaldoDia(){
+var SALDO_DIA = {fecha: null, total: 0, banks: {}};
+function fRenderSaldoDia(){
   if(typeof SALDO_DIA === 'undefined') return;
   var s = SALDO_DIA;
   var elFecha = document.getElementById('flujo-saldo-fecha');

@@ -1282,14 +1282,14 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     # FIX SALDO-DIA-FALLBACK: si var SALDO_DIA no fue generado por el script (sin movimientos),
     # insertar un objeto vacío para que fRenderSaldoDia() no falle silenciosamente
     if 'var SALDO_DIA' not in html:
-        _SD_ANCHOR = 'fRenderSaldoDia()'
+        _SD_ANCHOR = 'function fRenderSaldoDia(){'
         idx_sd = html.find(_SD_ANCHOR)
         if idx_sd >= 0:
-            # Insertar antes de la función fRenderSaldoDia
+            # Insertar var SALDO_DIA justo antes de la definición de la función
             html = html[:idx_sd] + 'var SALDO_DIA = {fecha: null, total: 0, banks: {}};\n' + html[idx_sd:]
             fixes_ok.append('SALDO-DIA-FALLBACK insertado (sin movimientos del dia)')
         else:
-            fixes_fail.append('SALDO-DIA-FALLBACK (fRenderSaldoDia no encontrado)')
+            fixes_fail.append('SALDO-DIA-FALLBACK (function fRenderSaldoDia no encontrado)')
     else:
         fixes_ok.append('SALDO-DIA (ya OK)')
 
