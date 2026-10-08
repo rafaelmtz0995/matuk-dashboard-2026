@@ -677,74 +677,104 @@ def extraer_fegr_extra():
 
 # ── SALDO ACTUAL DE BANCOS ────────────────────────────────────────────────────
 def extraer_saldo_bancos():
-    """Lee el último saldo registrado de cada cuenta bancaria en Flujo de Caja 2026.xlsx."""
+    """Lee el último saldo de los 5 bancos desde la hoja CONCENTRADO de Flujo de Caja 2026.xlsx.
+    Retorna MXN como valor principal y USD como sub-valor para cuentas en dólares.
+    banks = {'BBVA Pesos': {mxn:...}, 'BBVA USD': {mxn:..., usd:...}, ...}
+    """
     import datetime as _dt
-    print("  Saldo bancos (BBVA/BMX)...")
+    print("  Saldo bancos (CONCENTRADO - 5 bancos)...")
     try:
         wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
     except Exception as e:
         print(f"  WARN saldo_bancos: {e}")
         return None
 
-    BANCOS = {
-        'BBVA Pesos':  'BBVA PESOS25',
-        'BBVA USD':    'BBVA USD',
-        'BMX MXN':     'BMX MN 127630',
-        'BMX USD':     'BMX9002245 DLS..',
+    # Etiquetas en col 12 (idx 11) de CONCENTRADO (con strip para eliminar espacios)
+    BANCO_LABELS = {
+        'Vs BBVA pesos': {'label': 'BBVA Pesos',  'isUSD': False},
+        'Vs BBVA USD':   {'label': 'BBVA USD',    'isUSD': True},
+        'BMX USD':       {'label': 'BMX USD',     'isUSD': True},
+        'BMXQRO MN':     {'label': 'BMX QRO MN',  'isUSD': False},
+        'BANAMEX MN':    {'label': 'Banamex MN',  'isUSD': False},
     }
 
-    banks = {}
-    ultima_fecha = None
+    try:
+        ws_conc = wb['CONCENTRADO']
+    except Exception as e:
+        print(f"  WARN: hoja CONCENTRADO no encontrada: {e}")
+        return None
 
-    for nombre, sheet_name in BANCOS.items():
-        try:
-            ws = wb[sheet_name]
-            rows = list(ws.iter_rows(values_only=True))
-        except Exception:
-            continue
+    rows = list(ws_conc.iter_rows(values_only=True))
 
-        ultimo_saldo = None
-        ultima_fecha_banco = None
-
-        for r in rows:
-            # Col 11 (idx) = 'SALDO', col 12 = valor, col 6 = fecha
-            if len(r) > 12 and r[11] is not None and str(r[11]).strip().upper() == 'SALDO':
-                val = r[12]
-                fecha = r[6] if len(r) > 6 else None
-                if isinstance(val, (int, float)):
-                    ultimo_saldo = round(float(val), 2)
-                    if isinstance(fecha, _dt.datetime):
-                        ultima_fecha_banco = fecha
-
-        if ultimo_saldo is not None:
-            banks[nombre] = ultimo_saldo
-        if ultima_fecha_banco and (ultima_fecha is None or ultima_fecha_banco > ultima_fecha):
-            ultima_fecha = ultima_fecha_banco
-
-    # Buscar última fecha con movimientos (col 6 con datetime)
-    if ultima_fecha is None:
-        for nombre, sheet_name in BANCOS.items():
-            try:
-                ws = wb[sheet_name]
-                for r in ws.iter_rows(values_only=True):
-                    if len(r) > 6 and isinstance(r[6], _dt.datetime):
-                        if ultima_fecha is None or r[6] > ultima_fecha:
-                            ultima_fecha = r[6]
-            except Exception:
-                continue
-
-    total = round(sum(banks.values()), 2)
+    last_found = {}  # label_raw -> {mxn, usd?}
+    total_mxn = None
     meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-    fecha_str = None
-    if ultima_fecha:
-        fecha_str = f"{ultima_fecha.day}-{meses[ultima_fecha.month-1]}-{ultima_fecha.year}"
 
-    print(f"    Total: {total:,.0f} MXN | Último dato: {fecha_str}")
+    for r in rows:
+        if len(r) <= 12:
+            continue
+        label_cell = r[11]
+        if label_cell is None:
+            continue
+        label = str(label_cell).strip()  # strip: etiquetas pueden tener espacios
+
+        if label in BANCO_LABELS:
+            mxn_val = r[12] if len(r) > 12 else None
+            usd_val = r[13] if len(r) > 13 else None
+            if isinstance(mxn_val, (int, float)):
+                entry = {'mxn': round(float(mxn_val), 2)}
+                if BANCO_LABELS[label]['isUSD'] and isinstance(usd_val, (int, float)):
+                    entry['usd'] = round(float(usd_val), 2)
+                last_found[label] = entry
+        elif label == 'SALDO':
+            mxn_val = r[12] if len(r) > 12 else None
+            if isinstance(mxn_val, (int, float)):
+                total_mxn = round(float(mxn_val), 2)
+
+    # Fecha del último bloque: en CONCENTRADO la fecha está en col 3 (idx 3)
+    # Buscar hacia arriba desde el último banco encontrado
+    ultima_fecha_datos = None
+    for i in range(len(rows)-1, -1, -1):
+        r = rows[i]
+        if len(r) > 11 and r[11] is not None:
+            label = str(r[11]).strip()
+            if label in BANCO_LABELS:
+                for j in range(i, max(i-30, -1), -1):
+                    rr = rows[j]
+                    if rr and len(rr) > 3 and isinstance(rr[3], _dt.datetime):
+                        ultima_fecha_datos = rr[3]
+                        break
+                break
+    # Fallback: última fecha en col 3
+    if ultima_fecha_datos is None:
+        for r in reversed(rows):
+            if r and len(r) > 3 and isinstance(r[3], _dt.datetime):
+                ultima_fecha_datos = r[3]
+                break
+
+    # Construir banks: {label_display: {mxn, usd?}}
+    banks = {}
+    for label_raw, info in BANCO_LABELS.items():
+        if label_raw in last_found:
+            banks[info['label']] = last_found[label_raw]
+
+    if total_mxn is None:
+        total_mxn = round(sum(v['mxn'] for v in banks.values()), 2)
+
+    fecha_str = None
+    if ultima_fecha_datos:
+        fecha_str = f"{ultima_fecha_datos.day}-{meses[ultima_fecha_datos.month-1]}-{ultima_fecha_datos.year}"
+
     import datetime as _dt2
     hoy = _dt2.date.today()
     fecha_gen = f"{hoy.day}-{meses[hoy.month-1]}-{hoy.year}"
-    print(f"    Fecha generacion: {fecha_gen}")
-    return {'fecha': fecha_str, 'fecha_generacion': fecha_gen, 'total': total, 'banks': banks}
+
+    print(f"    Total: {total_mxn:,.0f} MXN | Último dato: {fecha_str} | Generado: {fecha_gen}")
+    for lbl, v in banks.items():
+        usd_str = f" / USD {v['usd']:,.2f}" if 'usd' in v else ''
+        print(f"      {lbl}: MXN {v['mxn']:,.2f}{usd_str}")
+
+    return {'fecha': fecha_str, 'fecha_generacion': fecha_gen, 'total': total_mxn, 'banks': banks}
 
 def aplicar_fixes(html, ultimo_mes_real=None, fegr_extra=None, tc_mes=None):
     """Re-aplica todos los fixes manuales que el regenerador sobreescribe."""
@@ -1423,27 +1453,86 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append('COSTOS-THEAD (patron no encontrado)')
 
-    # FIX: bankDefs claves deben coincidir con SALDO_DIA.banks
-    _BANKDEFS_OLD = """  var bankDefs = [
+    # FIX: bankDefs — 5 bancos desde CONCENTRADO, con isUSD para mostrar sub-monto en dólares
+    # banks tiene objetos {mxn, usd?} en vez de números simples
+    _BANKDEFS_MARKER_OK = "key:'BBVA USD',   label:'BBVA USD',   isUSD:true"
+    _BANKDEFS_MARKER_OK2 = "key:'BBVA USD',   label:'BBVA USD',   isUSD:true"
+    _BANKDEFS_OLD_4_ISMXN = """  var bankDefs = [
+    {key:'BBVA Pesos', label:'BBVA Pesos', isMXN:true},
+    {key:'BBVA USD',   label:'BBVA USD',   isMXN:false},
+    {key:'BMX USD',    label:'BMX USD',    isMXN:false},
+    {key:'BMX MXN',    label:'BMX MXN',    isMXN:true}
+  ];"""
+    _BANKDEFS_OLD_5_VSBVA = """  var bankDefs = [
     {key:'Vs BBVA pesos', label:'BBVA Pesos', isMXN:true},
     {key:'Vs BBVA USD',   label:'BBVA USD',   isMXN:false},
     {key:'BMX USD',       label:'BMX USD',    isMXN:false},
     {key:'BMXQRO MN',     label:'BMX QRO MN', isMXN:true},
     {key:'BANAMEX MN',    label:'Banamex MN', isMXN:true}
   ];"""
-    _BANKDEFS_NEW = """  var bankDefs = [
-    {key:'BBVA Pesos', label:'BBVA Pesos', isMXN:true},
-    {key:'BBVA USD',   label:'BBVA USD',   isMXN:false},
-    {key:'BMX USD',    label:'BMX USD',    isMXN:false},
-    {key:'BMX MXN',    label:'BMX MXN',    isMXN:true}
+    _BANKDEFS_NEW_5 = """  var bankDefs = [
+    {key:'BBVA Pesos', label:'BBVA Pesos', isUSD:false},
+    {key:'BBVA USD',   label:'BBVA USD',   isUSD:true},
+    {key:'BMX USD',    label:'BMX USD',    isUSD:true},
+    {key:'BMX QRO MN', label:'BMX QRO MN', isUSD:false},
+    {key:'Banamex MN', label:'Banamex MN', isUSD:false}
   ];"""
-    if _BANKDEFS_OLD in html:
-        html = html.replace(_BANKDEFS_OLD, _BANKDEFS_NEW, 1)
-        fixes_ok.append('BANKDEFS claves corregidas')
-    elif "key:'BBVA Pesos'" in html and "key:'BMX MXN'" in html:
-        fixes_ok.append('BANKDEFS (ya OK)')
+    if _BANKDEFS_MARKER_OK in html:
+        fixes_ok.append('BANKDEFS (ya OK - 5 bancos con isUSD)')
+    elif _BANKDEFS_OLD_4_ISMXN in html:
+        html = html.replace(_BANKDEFS_OLD_4_ISMXN, _BANKDEFS_NEW_5, 1)
+        fixes_ok.append('BANKDEFS actualizado (4->5 bancos con isUSD)')
+    elif _BANKDEFS_OLD_5_VSBVA in html:
+        html = html.replace(_BANKDEFS_OLD_5_VSBVA, _BANKDEFS_NEW_5, 1)
+        fixes_ok.append('BANKDEFS actualizado (5 bancos Vs->/display con isUSD)')
     else:
         fixes_fail.append('BANKDEFS (patron no encontrado)')
+
+    # FIX: Renderizado de tarjetas bancarias — MXN principal + USD abajo para cuentas USD
+    _CARDS_OLD = """  var cards = bankDefs.map(function(b){
+    var v = s.banks[b.key] || 0;
+    var vFmt;
+    if(v>=1e6) vFmt='$'+(v/1e6).toFixed(1)+'M';
+    else if(v>=1e3) vFmt='$'+(v/1e3).toFixed(0)+'K';
+    else vFmt='$'+Math.round(v);
+    var sub = b.isMXN ? 'MXN' : 'MXN equiv.';
+    return '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:7px 9px">'
+      +'<div style="font-size:.52rem;font-weight:700;color:#93C5FD;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+b.label+'</div>'
+      +'<div style="font-size:.72rem;font-weight:800;color:#fff;white-space:nowrap">'+vFmt+'</div>'
+      +'<div style="font-size:.5rem;color:#64748B;margin-top:1px">'+sub+'</div>'
+      +'</div>';
+  });
+  elBanks.innerHTML = cards.join('');"""
+    _CARDS_NEW = """  var fmtMXN=function(v){if(v>=1e6)return '$'+(v/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';if(v>=1e3)return '$'+(v/1e3).toFixed(0)+'K';return '$'+Math.round(v);};
+  var fmtUSD=function(v){if(v>=1e6)return 'USD '+(v/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';if(v>=1e3)return 'USD '+(v/1e3).toFixed(0)+'K';return 'USD '+Math.round(v);};
+  var cards = bankDefs.map(function(b){
+    var bv=s.banks[b.key]||{};
+    var mxn=(typeof bv==='object'&&bv!==null&&'mxn' in bv)?bv.mxn:(typeof bv==='number'?bv:0);
+    var usd=(typeof bv==='object'&&bv!==null&&'usd' in bv)?bv.usd:null;
+    var usdLine=(b.isUSD&&usd!==null)?'<div style="font-size:.5rem;color:#93C5FD;margin-top:2px;font-weight:600">'+fmtUSD(usd)+'</div>':'<div style="font-size:.5rem;color:#64748B;margin-top:1px">MXN</div>';
+    return '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:7px 9px">'
+      +'<div style="font-size:.52rem;font-weight:700;color:#93C5FD;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+b.label+'</div>'
+      +'<div style="font-size:.72rem;font-weight:800;color:#fff;white-space:nowrap">'+fmtMXN(mxn)+' MXN</div>'
+      +usdLine
+      +'</div>';
+  });
+  elBanks.innerHTML = cards.join('');"""
+    if 'fmtMXN=function' in html and 'fmtUSD=function' in html:
+        fixes_ok.append('CARDS-RENDER (ya OK - MXN+USD)')
+    elif _CARDS_OLD in html:
+        html = html.replace(_CARDS_OLD, _CARDS_NEW, 1)
+        fixes_ok.append('CARDS-RENDER actualizado (MXN principal + USD abajo)')
+    else:
+        fixes_fail.append('CARDS-RENDER (patron no encontrado)')
+
+    # FIX: Grid de bancos — 5 columnas
+    _GRID_OLD_4 = 'id="flujo-saldo-banks" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"'
+    _GRID_5 = 'id="flujo-saldo-banks" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px"'
+    if _GRID_5 in html:
+        fixes_ok.append('BANKS-GRID (ya OK - 5 cols)')
+    elif _GRID_OLD_4 in html:
+        html = html.replace(_GRID_OLD_4, _GRID_5, 1)
+        fixes_ok.append('BANKS-GRID actualizado (4->5 cols)')
 
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
