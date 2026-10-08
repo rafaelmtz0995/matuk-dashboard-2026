@@ -524,7 +524,54 @@ footer strong{color:#fff}
 
   <!-- FILTRAR POR MES -->
   <div class="filter-wrap" style="margin-bottom:20px;justify-content:space-between">
-  <!-- /section-alt -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7A99;margin-right:4px">FILTRAR POR MES:</span>
+      <button onclick="filterCostosMes('TODOS',this)" id="cbtn-todos" style="padding:4px 12px;border-radius:20px;border:none;background:var(--blue);color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Todos</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:6px" id="costos-view-toggle">
+        <button onclick="setCostosView('usd',this)" style="padding:4px 10px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;font-size:.7rem;cursor:pointer;font-weight:600">USD</button>
+        <button onclick="setCostosView('mxn',this)" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer">MXN</button>
+        <button onclick="setCostosView('both',this)" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer">Ambos</button>
+      </div>
+      <button onclick="downloadCostosCSV()" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer;display:flex;align-items:center;gap:4px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        DESCARGAR TABLA
+      </button>
+    </div>
+  </div>
+
+  <!-- AGRUPAR POR -->
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+    <span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7A99">AGRUPAR POR:</span>
+    <button onclick="setCostosGroup('cliente',this)" id="cgrp-cliente" style="padding:4px 14px;border-radius:20px;border:none;background:var(--navy);color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Cliente</button>
+    <button onclick="setCostosGroup('po',this)" id="cgrp-po" style="padding:4px 14px;border-radius:20px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.72rem;cursor:pointer">PO</button>
+    <button onclick="setCostosGroup('servicio',this)" id="cgrp-servicio" style="padding:4px 14px;border-radius:20px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.72rem;cursor:pointer">Servicio</button>
+  </div>
+
+  <!-- SEARCH -->
+  <div style="margin-bottom:14px">
+    <input id="costos-search" type="text" placeholder="Buscar cliente, PO o servicio..." oninput="buildCostosTable()" style="width:100%;padding:8px 14px;border:1px solid #E5E7EB;border-radius:8px;font-size:.78rem;outline:none;box-sizing:border-box">
+  </div>
+
+  <!-- TABLA COSTOS -->
+  <div style="overflow-x:auto;border-radius:10px;border:1px solid #E5E7EB">
+    <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+      <thead>
+        <tr style="background:var(--navy)">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Total</th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>
+    </table>
+  </div>
+
+</div><!-- /section costos desglose -->
+<!-- /section-alt -->
 <!-- HISTORIAL PASIVOS SECTION -->
 <div class="section" style="margin:16px 0 0">
   <div class="section-label">03 / HISTORIAL DE PASIVOS</div>
@@ -2662,7 +2709,8 @@ function fRenderLineSaldo(){
 }
 
 
-function fRenderSaldoDia(){
+function var SALDO_DIA = {fecha: null, total: 0, banks: {}};
+fRenderSaldoDia(){
   if(typeof SALDO_DIA === 'undefined') return;
   var s = SALDO_DIA;
   var elFecha = document.getElementById('flujo-saldo-fecha');
