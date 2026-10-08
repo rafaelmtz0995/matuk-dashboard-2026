@@ -1296,7 +1296,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
   </div>
   <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7A99">AGRUPAR POR:</span>
-    <button onclick="setCostosGroup('cliente',this)" id="cgrp-cliente" style="padding:4px 14px;border-radius:20px;border:none;background:var(--navy);color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Cliente</button>
+    <button onclick="setCostosGroup('cliente',this)" id="cgrp-cliente" style="padding:4px 14px;border-radius:20px;border:none;background:#0D1F3C;color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Cliente</button>
     <button onclick="setCostosGroup('po',this)" id="cgrp-po" style="padding:4px 14px;border-radius:20px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.72rem;cursor:pointer">PO</button>
     <button onclick="setCostosGroup('servicio',this)" id="cgrp-servicio" style="padding:4px 14px;border-radius:20px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.72rem;cursor:pointer">Servicio</button>
   </div>
@@ -1306,7 +1306,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
   <div style="overflow-x:auto;border-radius:10px;border:1px solid #E5E7EB">
     <table style="width:100%;border-collapse:collapse;font-size:.78rem">
       <thead>
-        <tr style="background:var(--navy)">
+        <tr style="background:#0D1F3C">
           <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
@@ -1394,7 +1394,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
 
     # FIX: thead de costos debe tener 7 columnas (Mes, Costo Hrs USD, Perdiem, Otros, Total USD, MXN, acciones)
     _CTHEAD_OLD = """      <thead>
-        <tr style="background:var(--navy)">
+        <tr style="background:#0D1F3C">
           <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
@@ -1404,7 +1404,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
       </thead>
       <tbody id="ctbody"></tbody>"""
     _CTHEAD_NEW = """      <thead>
-        <tr style="background:var(--navy)">
+        <tr style="background:#0D1F3C">
           <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
