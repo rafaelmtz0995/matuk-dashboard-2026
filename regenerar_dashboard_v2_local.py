@@ -1667,7 +1667,7 @@ def extraer_saldo_dia():
     if last_date:
         import datetime as _dt
         if isinstance(last_date, (_dt.date, _dt.datetime)):
-            fecha_str = last_date.strftime('%-d-%b-%Y')
+            fecha_str = str(last_date.day) + last_date.strftime('-%b-%Y')
         else:
             fecha_str = str(last_date)
     result = {
