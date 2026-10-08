@@ -2761,11 +2761,10 @@ function fRenderSaldoDia(){
   var elBanks = document.getElementById('flujo-saldo-banks');
   if(!elBanks || !s.banks) return;
   var bankDefs = [
-    {key:'Vs BBVA pesos', label:'BBVA Pesos', isMXN:true},
-    {key:'Vs BBVA USD',   label:'BBVA USD',   isMXN:false},
-    {key:'BMX USD',       label:'BMX USD',    isMXN:false},
-    {key:'BMXQRO MN',     label:'BMX QRO MN', isMXN:true},
-    {key:'BANAMEX MN',    label:'Banamex MN', isMXN:true}
+    {key:'BBVA Pesos', label:'BBVA Pesos', isMXN:true},
+    {key:'BBVA USD',   label:'BBVA USD',   isMXN:false},
+    {key:'BMX USD',    label:'BMX USD',    isMXN:false},
+    {key:'BMX MXN',    label:'BMX MXN',    isMXN:true}
   ];
   var cards = bankDefs.map(function(b){
     var v = s.banks[b.key] || 0;

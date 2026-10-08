@@ -1326,24 +1326,26 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     # FIX CANVAS-COSTOS: si faltan los canvas de comportamiento mensual de costos, insertarlos
     _CANVAS_CHECK = 'costos-tendencia-chart'
     if _CANVAS_CHECK not in html:
-        _CANVAS_ANCHOR = '</div><!-- /section-alt -->'
-        _CANVAS_INSERT = """<div class="chart-grid-2" style="margin-bottom:20px">
-  <div class="chart-card">
-    <div class="chart-title"><span class="dot" style="background:#1F5BA6"></span>Tendencia Mensual vs Acumulado</div>
-    <canvas id="costos-tendencia-chart"></canvas>
+        _CANVAS_ANCHOR = '  <!-- AGRUPAR POR -->'
+        _CANVAS_INSERT = """  <!-- GRAFICAS COSTOS -->
+  <div class="chart-grid-2" style="margin-bottom:20px">
+    <div class="chart-card">
+      <div class="chart-title"><span class="dot" style="background:#1F5BA6"></span>Tendencia Mensual vs Acumulado</div>
+      <canvas id="costos-tendencia-chart" style="max-height:220px"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><span class="dot" style="background:#F59E0B"></span>Costo Total USD por Mes</div>
+      <canvas id="costos-barras-chart" style="max-height:220px"></canvas>
+    </div>
   </div>
-  <div class="chart-card">
-    <div class="chart-title"><span class="dot" style="background:#F59E0B"></span>Costo Total USD por Mes</div>
-    <canvas id="costos-barras-chart"></canvas>
-  </div>
-</div>
-"""
+
+  <!-- AGRUPAR POR -->"""
         idx_ca = html.find(_CANVAS_ANCHOR)
         if idx_ca >= 0:
-            html = html[:idx_ca] + _CANVAS_INSERT + html[idx_ca:]
+            html = html.replace(_CANVAS_ANCHOR, _CANVAS_INSERT, 1)
             fixes_ok.append('CANVAS-COSTOS insertados')
         else:
-            fixes_fail.append('CANVAS-COSTOS (ancla /section-alt no encontrada)')
+            fixes_fail.append('CANVAS-COSTOS (ancla AGRUPAR POR no encontrada)')
     else:
         fixes_ok.append('CANVAS-COSTOS (ya OK)')
 
@@ -1374,6 +1376,28 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
             fixes_ok.append('SALDO-DIA insertado con datos reales')
         else:
             fixes_fail.append('SALDO-DIA (function fRenderSaldoDia no encontrado)')
+
+    # FIX: bankDefs claves deben coincidir con SALDO_DIA.banks
+    _BANKDEFS_OLD = """  var bankDefs = [
+    {key:'Vs BBVA pesos', label:'BBVA Pesos', isMXN:true},
+    {key:'Vs BBVA USD',   label:'BBVA USD',   isMXN:false},
+    {key:'BMX USD',       label:'BMX USD',    isMXN:false},
+    {key:'BMXQRO MN',     label:'BMX QRO MN', isMXN:true},
+    {key:'BANAMEX MN',    label:'Banamex MN', isMXN:true}
+  ];"""
+    _BANKDEFS_NEW = """  var bankDefs = [
+    {key:'BBVA Pesos', label:'BBVA Pesos', isMXN:true},
+    {key:'BBVA USD',   label:'BBVA USD',   isMXN:false},
+    {key:'BMX USD',    label:'BMX USD',    isMXN:false},
+    {key:'BMX MXN',    label:'BMX MXN',    isMXN:true}
+  ];"""
+    if _BANKDEFS_OLD in html:
+        html = html.replace(_BANKDEFS_OLD, _BANKDEFS_NEW, 1)
+        fixes_ok.append('BANKDEFS claves corregidas')
+    elif "key:'BBVA Pesos'" in html and "key:'BMX MXN'" in html:
+        fixes_ok.append('BANKDEFS (ya OK)')
+    else:
+        fixes_fail.append('BANKDEFS (patron no encontrado)')
 
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
