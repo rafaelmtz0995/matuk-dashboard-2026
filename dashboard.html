@@ -2307,7 +2307,10 @@ function fRenderKPIs(){
   document.getElementById('fk-saldo-lbl').textContent = 'Saldo Final ' + months[months.length-1];
   document.getElementById('fk-ing-lbl').textContent   = 'Ingresos ' + (isSingle?fMes:'YTD');
   document.getElementById('fk-egr-lbl').textContent   = 'Egresos ' + (isSingle?fMes:'YTD');
-  document.getElementById('fk-saldo-sub').textContent = isSingle ? 'Saldo acumulado al cierre de '+fMes : 'Saldo final septiembre 2026';
+  var _hoy2 = new Date(); var _m2=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    var _hoyStr2 = _hoy2.getDate()+'-'+_m2[_hoy2.getMonth()]+'-'+_hoy2.getFullYear();
+    var _ultDato = (typeof SALDO_DIA!=='undefined'&&SALDO_DIA.fecha) ? ' · último dato: '+SALDO_DIA.fecha : '';
+    document.getElementById('fk-saldo-sub').textContent = isSingle ? 'Saldo acumulado al cierre de '+fMes : 'Al '+_hoyStr2+_ultDato;
   document.getElementById('fk-ing-sub').textContent   = isSingle ? 'Cobros ingresados en '+fMes : 'Cobros acumulados ENE–SEP';
   document.getElementById('fk-egr-sub').textContent   = isSingle ? 'Pagos realizados en '+fMes : 'Pagos acumulados ENE–SEP';
   document.getElementById('fk-margen-sub').textContent= margen>=0 ? 'Ingresos > Egresos ✓' : 'Egresos > Ingresos ⚠';
@@ -2746,7 +2749,12 @@ function fRenderSaldoDia(){
   if(typeof SALDO_DIA === 'undefined') return;
   var s = SALDO_DIA;
   var elFecha = document.getElementById('flujo-saldo-fecha');
-  if(elFecha) elFecha.textContent = s.fecha ? 'al ' + s.fecha : '';
+  if(elFecha){
+    var hoy = new Date();
+    var meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    var hoyStr = hoy.getDate()+'-'+meses[hoy.getMonth()]+'-'+hoy.getFullYear();
+    elFecha.textContent = 'Saldo al '+hoyStr + (s.fecha ? ' · último dato: '+s.fecha : '');
+  }
   var elTotal = document.getElementById('flujo-saldo-total');
   if(elTotal){
     var t = s.total || 0;
