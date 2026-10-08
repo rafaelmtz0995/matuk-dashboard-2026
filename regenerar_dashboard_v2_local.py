@@ -1377,6 +1377,37 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         else:
             fixes_fail.append('SALDO-DIA (function fRenderSaldoDia no encontrado)')
 
+    # FIX: thead de costos debe tener 7 columnas (Mes, Costo Hrs USD, Perdiem, Otros, Total USD, MXN, acciones)
+    _CTHEAD_OLD = """      <thead>
+        <tr style="background:var(--navy)">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Total</th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>"""
+    _CTHEAD_NEW = """      <thead>
+        <tr style="background:var(--navy)">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Total USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo MXN</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff"></th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>"""
+    if _CTHEAD_OLD in html:
+        html = html.replace(_CTHEAD_OLD, _CTHEAD_NEW, 1)
+        fixes_ok.append('COSTOS-THEAD 7 columnas corregido')
+    elif 'Costo MXN' in html and 'id="ctbody"' in html:
+        fixes_ok.append('COSTOS-THEAD (ya OK)')
+    else:
+        fixes_fail.append('COSTOS-THEAD (patron no encontrado)')
+
     # FIX: bankDefs claves deben coincidir con SALDO_DIA.banks
     _BANKDEFS_OLD = """  var bankDefs = [
     {key:'Vs BBVA pesos', label:'BBVA Pesos', isMXN:true},
