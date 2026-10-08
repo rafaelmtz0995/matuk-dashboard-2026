@@ -1187,6 +1187,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
 def actualizar_pasivo_html(html, cierres, detalle, vivo):
     """Actualiza la sección hardcodeada de HISTORIAL PASIVOS en el HTML."""
     print("  Actualizando HISTORIAL PASIVOS en HTML...")
+    fixes_ok = []; fixes_fail = []
 
     fN = lambda n: f"{n:,.1f}" if n != int(n) else f"{int(n):,}"
     fU = lambda n: f"${int(round(n)):,}"
