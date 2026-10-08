@@ -896,8 +896,8 @@ footer strong{color:#fff}
     <div class="fsaldo-ctx">
       <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA USD</div><div class="fsaldo-bval" id="fb-bbvausd"></div></div>
       <div class="fsaldo-banco"><div class="fsaldo-bname">BMX USD</div><div class="fsaldo-bval" id="fb-bmxusd"></div></div>
-      <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA MN</div><div class="fsaldo-bval" id="fb-bbvamn"></div></div>
-      <div class="fsaldo-banco"><div class="fsaldo-bname">BMX MN</div><div class="fsaldo-bval" id="fb-bmxmn"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA PESOS</div><div class="fsaldo-bval" id="fb-bbvamn"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BMX MXN</div><div class="fsaldo-bval" id="fb-bmxmn"></div></div>
     </div>
   </div>
 </div>
@@ -2312,11 +2312,22 @@ function fRenderKPIs(){
 }
 
 function fRenderBancos(){
-  const k = fDivisa;
-  document.getElementById('fb-bbvausd').textContent = fFmt(FBANCOS_ENE.bbvausd[k]);
-  document.getElementById('fb-bmxusd').textContent  = fFmt(FBANCOS_ENE.bmxusd[k]);
-  document.getElementById('fb-bbvamn').textContent  = fFmt(FBANCOS_ENE.bbvamn[k]);
-  document.getElementById('fb-bmxmn').textContent   = fFmt(FBANCOS_ENE.bmxmn[k]);
+  // Usar SALDO_DIA.banks para mostrar saldos reales actuales
+  if(typeof SALDO_DIA !== 'undefined' && SALDO_DIA.banks){
+    var b = SALDO_DIA.banks;
+    var fmt = function(v){ return v ? '$' + (v/1000000).toFixed(2) + 'M' : '$0'; };
+    var el;
+    el = document.getElementById('fb-bbvamn'); if(el) el.textContent = fmt(b['BBVA Pesos']);
+    el = document.getElementById('fb-bbvausd'); if(el) el.textContent = fmt(b['BBVA USD']);
+    el = document.getElementById('fb-bmxmn'); if(el) el.textContent = fmt(b['BMX MXN']);
+    el = document.getElementById('fb-bmxusd'); if(el) el.textContent = fmt(b['BMX USD']);
+  } else {
+    const k = fDivisa;
+    document.getElementById('fb-bbvausd').textContent = fFmt(FBANCOS_ENE.bbvausd[k]);
+    document.getElementById('fb-bmxusd').textContent  = fFmt(FBANCOS_ENE.bmxusd[k]);
+    document.getElementById('fb-bbvamn').textContent  = fFmt(FBANCOS_ENE.bbvamn[k]);
+    document.getElementById('fb-bmxmn').textContent   = fFmt(FBANCOS_ENE.bmxmn[k]);
+  }
 }
 
 
