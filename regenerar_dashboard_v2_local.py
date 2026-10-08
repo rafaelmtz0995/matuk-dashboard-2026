@@ -1324,10 +1324,7 @@ def actualizar_pasivo_html(html, cierres, detalle, vivo):
     # El bloque duplicado empieza con '<div class="nav-right">' huérfano y termina antes del init script
     # Se busca el patron: </script> seguido de la nav-right huérfana + </nav> + view-resumen duplicado
     import re as _re
-    _DUP_PATTERN = r'(</script>
-)
-  <div class=nav-right>.*?(?=<script>
-// Inicialización directa)'
+    _DUP_PATTERN = r'(</script>\n)\n  <div class=nav-right>.*?(?=<script>\n// Inicialización directa)'
     _dup_match = _re.search(_DUP_PATTERN, html, flags=_re.DOTALL)
     if _dup_match:
         html = html[:_dup_match.start()] + _dup_match.group(1) + html[_dup_match.end():]
@@ -1398,9 +1395,7 @@ function rsBindTooltip(container, rowClass, dataArr, mode){
     if _CANVAS_MARKER not in html and _RS_RENDER_CLOSE not in html:
         # Find closing "}" of rsRender - it's right after the rs-ops section closes
         # The rs-ops section ends with "  }" then the outer "}" closes rsRender
-        # We look for the pattern: "  }
-}" followed by "
-</script>"
+        # We look for the pattern: end of rsRender inner block then outer closing brace then </script>
         import re as _re_canvas
         # Pattern: close of inner block "  }" + close of rsRender "}" + </script>
         _canvas_drawing = """
@@ -1620,11 +1615,8 @@ function fRenderSaldoDia(){
     _frender_call_pat = 'fRenderSaldoDia();'
     if _frender_body_old in html and _frender_call_pat not in html:
         # Find fRenderAll body and add call at the start
-        _old_frender_first = 'function fRenderAll(){
-  fRenderKPIs();'
-        _new_frender_first = 'function fRenderAll(){
-  fRenderSaldoDia();
-  fRenderKPIs();'
+        _old_frender_first = 'function fRenderAll(){\n  fRenderKPIs();'
+        _new_frender_first = 'function fRenderAll(){\n  fRenderSaldoDia();\n  fRenderKPIs();'
         if _old_frender_first in html:
             html = html.replace(_old_frender_first, _new_frender_first, 1)
             fixes_ok.append('SALDO-DIA (fRenderAll actualizada)')
