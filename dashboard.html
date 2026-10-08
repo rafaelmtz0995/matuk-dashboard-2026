@@ -2740,7 +2740,7 @@ function fRenderLineSaldo(){
 }
 
 
-var SALDO_DIA = {"fecha": "8-oct-2026", "total": 6260344.0, "banks": {"BBVA Pesos": 2180757.71, "BBVA USD": 1022076.87, "BMX MXN": 143495.83, "BMX USD": 2914013.59}};
+var SALDO_DIA = {"fecha": "7-oct-2026", "fecha_generacion": "8-oct-2026", "total": 6260344.0, "banks": {"BBVA Pesos": 2180757.71, "BBVA USD": 1022076.87, "BMX MXN": 143495.83, "BMX USD": 2914013.59}};
 function fRenderSaldoDia(){
   if(typeof SALDO_DIA === 'undefined') return;
   var s = SALDO_DIA;
@@ -2749,7 +2749,7 @@ function fRenderSaldoDia(){
     var hoy = new Date();
     var meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
     var hoyStr = hoy.getDate()+'-'+meses[hoy.getMonth()]+'-'+hoy.getFullYear();
-    elFecha.textContent = 'Saldo al '+hoyStr + (s.fecha ? ' · último dato: '+s.fecha : '');
+    elFecha.textContent = 'Actualizado: '+(s.fecha_generacion||hoyStr) + (s.fecha ? ' · Datos al: '+s.fecha : '');
   }
   var elTotal = document.getElementById('flujo-saldo-total');
   if(elTotal){

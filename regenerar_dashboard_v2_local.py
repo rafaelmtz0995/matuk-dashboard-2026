@@ -740,7 +740,11 @@ def extraer_saldo_bancos():
         fecha_str = f"{ultima_fecha.day}-{meses[ultima_fecha.month-1]}-{ultima_fecha.year}"
 
     print(f"    Total: {total:,.0f} MXN | Último dato: {fecha_str}")
-    return {'fecha': fecha_str, 'total': total, 'banks': banks}
+    import datetime as _dt2
+    hoy = _dt2.date.today()
+    fecha_gen = f"{hoy.day}-{meses[hoy.month-1]}-{hoy.year}"
+    print(f"    Fecha generacion: {fecha_gen}")
+    return {'fecha': fecha_str, 'fecha_generacion': fecha_gen, 'total': total, 'banks': banks}
 
 def aplicar_fixes(html, ultimo_mes_real=None, fegr_extra=None, tc_mes=None):
     """Re-aplica todos los fixes manuales que el regenerador sobreescribe."""
@@ -1376,6 +1380,17 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
             fixes_ok.append('SALDO-DIA insertado con datos reales')
         else:
             fixes_fail.append('SALDO-DIA (function fRenderSaldoDia no encontrado)')
+
+    # FIX: fRenderSaldoDia mostrar "Actualizado: <hoy> · Datos al: <fecha_excel>"
+    _FECHA_OLD = "    elFecha.textContent = 'Saldo al '+hoyStr + (s.fecha ? ' · último dato: '+s.fecha : '');"
+    _FECHA_NEW = "    elFecha.textContent = 'Actualizado: '+(s.fecha_generacion||hoyStr) + (s.fecha ? ' · Datos al: '+s.fecha : '');"
+    if _FECHA_OLD in html:
+        html = html.replace(_FECHA_OLD, _FECHA_NEW, 1)
+        fixes_ok.append('FECHA-RENDER actualizado')
+    elif _FECHA_NEW in html:
+        fixes_ok.append('FECHA-RENDER (ya OK)')
+    else:
+        fixes_fail.append('FECHA-RENDER (patron no encontrado)')
 
     # FIX: thead de costos debe tener 7 columnas (Mes, Costo Hrs USD, Perdiem, Otros, Total USD, MXN, acciones)
     _CTHEAD_OLD = """      <thead>
