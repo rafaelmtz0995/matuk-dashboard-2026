@@ -540,29 +540,10 @@ footer strong{color:#fff}
       <button onclick="cFilterMes('SEP')" data-m="SEP" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">SEP</button>
       <button onclick="cFilterMes('OCT')" data-m="OCT" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">OCT</button>
     </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <div style="display:flex;gap:6px" id="costos-view-toggle">
-        <button onclick="setCostosView('usd',this)" style="padding:4px 10px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;font-size:.7rem;cursor:pointer;font-weight:600">USD</button>
-        <button onclick="setCostosView('mxn',this)" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer">MXN</button>
-        <button onclick="setCostosView('both',this)" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer">Ambos</button>
-      </div>
-      <button onclick="downloadCostosCSV()" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer;display:flex;align-items:center;gap:4px">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        DESCARGAR TABLA
-      </button>
-    </div>
-  </div>
-
-  <!-- GRAFICAS COSTOS -->
-  <div class="chart-grid-2" style="margin-bottom:20px">
-    <div class="chart-card">
-      <div class="chart-title"><span class="dot" style="background:#1F5BA6"></span>Tendencia Mensual vs Acumulado</div>
-      <canvas id="costos-tendencia-chart" style="max-height:220px"></canvas>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title"><span class="dot" style="background:#F59E0B"></span>Costo Total USD por Mes</div>
-      <canvas id="costos-barras-chart" style="max-height:220px"></canvas>
-    </div>
+    <button onclick="downloadCostosCSV()" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer;display:flex;align-items:center;gap:4px">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      DESCARGAR TABLA
+    </button>
   </div>
 
   <!-- AGRUPAR POR -->
@@ -592,6 +573,19 @@ footer strong{color:#fff}
       </thead>
       <tbody id="ctbody"></tbody>
     </table>
+  </div>
+
+
+  <!-- GRAFICAS COSTOS -->
+  <div class="chart-grid-2" style="margin-top:20px">
+    <div class="chart-card">
+      <div class="chart-title"><span class="dot" style="background:#1F5BA6"></span>Tendencia Mensual vs Acumulado</div>
+      <canvas id="costos-tendencia-chart" style="max-height:220px"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><span class="dot" style="background:#F59E0B"></span>Costo Total USD por Mes</div>
+      <canvas id="costos-barras-chart" style="max-height:220px"></canvas>
+    </div>
   </div>
 
 </div><!-- /section costos desglose -->
