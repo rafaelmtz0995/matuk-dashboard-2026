@@ -674,6 +674,74 @@ def extraer_fegr_extra():
 
 
 # ── FIXES POST-REGENERACION ───────────────────────────────────────────────────
+
+# ── SALDO ACTUAL DE BANCOS ────────────────────────────────────────────────────
+def extraer_saldo_bancos():
+    """Lee el último saldo registrado de cada cuenta bancaria en Flujo de Caja 2026.xlsx."""
+    import datetime as _dt
+    print("  Saldo bancos (BBVA/BMX)...")
+    try:
+        wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
+    except Exception as e:
+        print(f"  WARN saldo_bancos: {e}")
+        return None
+
+    BANCOS = {
+        'BBVA Pesos':  'BBVA PESOS25',
+        'BBVA USD':    'BBVA USD',
+        'BMX MXN':     'BMX MN 127630',
+        'BMX USD':     'BMX9002245 DLS..',
+    }
+
+    banks = {}
+    ultima_fecha = None
+
+    for nombre, sheet_name in BANCOS.items():
+        try:
+            ws = wb[sheet_name]
+            rows = list(ws.iter_rows(values_only=True))
+        except Exception:
+            continue
+
+        ultimo_saldo = None
+        ultima_fecha_banco = None
+
+        for r in rows:
+            # Col 11 (idx) = 'SALDO', col 12 = valor, col 6 = fecha
+            if len(r) > 12 and r[11] is not None and str(r[11]).strip().upper() == 'SALDO':
+                val = r[12]
+                fecha = r[6] if len(r) > 6 else None
+                if isinstance(val, (int, float)):
+                    ultimo_saldo = round(float(val), 2)
+                    if isinstance(fecha, _dt.datetime):
+                        ultima_fecha_banco = fecha
+
+        if ultimo_saldo is not None:
+            banks[nombre] = ultimo_saldo
+        if ultima_fecha_banco and (ultima_fecha is None or ultima_fecha_banco > ultima_fecha):
+            ultima_fecha = ultima_fecha_banco
+
+    # Buscar última fecha con movimientos (col 6 con datetime)
+    if ultima_fecha is None:
+        for nombre, sheet_name in BANCOS.items():
+            try:
+                ws = wb[sheet_name]
+                for r in ws.iter_rows(values_only=True):
+                    if len(r) > 6 and isinstance(r[6], _dt.datetime):
+                        if ultima_fecha is None or r[6] > ultima_fecha:
+                            ultima_fecha = r[6]
+            except Exception:
+                continue
+
+    total = round(sum(banks.values()), 2)
+    meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+    fecha_str = None
+    if ultima_fecha:
+        fecha_str = f"{ultima_fecha.day}-{meses[ultima_fecha.month-1]}-{ultima_fecha.year}"
+
+    print(f"    Total: {total:,.0f} MXN | Último dato: {fecha_str}")
+    return {'fecha': fecha_str, 'total': total, 'banks': banks}
+
 def aplicar_fixes(html, ultimo_mes_real=None, fegr_extra=None, tc_mes=None):
     """Re-aplica todos los fixes manuales que el regenerador sobreescribe."""
     fixes_ok = []
@@ -1279,19 +1347,33 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_ok.append('CANVAS-COSTOS (ya OK)')
 
-    # FIX SALDO-DIA-FALLBACK: si var SALDO_DIA no fue generado por el script (sin movimientos),
-    # insertar un objeto vacío para que fRenderSaldoDia() no falle silenciosamente
-    if 'var SALDO_DIA' not in html:
-        _SD_ANCHOR = 'function fRenderSaldoDia(){'
+    # FIX SALDO-DIA: siempre leer el último saldo real de bancos del Excel
+    # y escribirlo en var SALDO_DIA (con fecha del último dato y saldos por cuenta)
+    import json as _json
+    _saldo_data = None
+    try:
+        _saldo_data = extraer_saldo_bancos()
+    except Exception as _e:
+        print(f"  WARN extraer_saldo_bancos: {_e}")
+
+    if _saldo_data is None:
+        _saldo_data = {'fecha': None, 'total': 0, 'banks': {}}
+
+    _SD_JS = 'var SALDO_DIA = ' + _json.dumps(_saldo_data, ensure_ascii=False) + ';'
+    _SD_ANCHOR = 'function fRenderSaldoDia(){'
+
+    if 'var SALDO_DIA' in html:
+        # Reemplazar el existente (puede ser viejo o el fallback del turno anterior)
+        import re as _re
+        html = _re.sub(r'var SALDO_DIA\s*=\s*\{[^;]+\};', _SD_JS, html, count=1)
+        fixes_ok.append('SALDO-DIA actualizado con datos reales')
+    else:
         idx_sd = html.find(_SD_ANCHOR)
         if idx_sd >= 0:
-            # Insertar var SALDO_DIA justo antes de la definición de la función
-            html = html[:idx_sd] + 'var SALDO_DIA = {fecha: null, total: 0, banks: {}};\n' + html[idx_sd:]
-            fixes_ok.append('SALDO-DIA-FALLBACK insertado (sin movimientos del dia)')
+            html = html[:idx_sd] + _SD_JS + '\n' + html[idx_sd:]
+            fixes_ok.append('SALDO-DIA insertado con datos reales')
         else:
-            fixes_fail.append('SALDO-DIA-FALLBACK (function fRenderSaldoDia no encontrado)')
-    else:
-        fixes_ok.append('SALDO-DIA (ya OK)')
+            fixes_fail.append('SALDO-DIA (function fRenderSaldoDia no encontrado)')
 
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
