@@ -1422,7 +1422,8 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append('FECHA-RENDER (patron no encontrado)')
 
-    # FIX: thead de costos debe tener 7 columnas (Mes, Costo Hrs USD, Perdiem, Otros, Total USD, MXN, acciones)
+    # FIX: thead de costos — 7 columnas con background #0D1F3C!important en cada <th>
+    # (el CSS global "th{background:var(--gray-100)}" sobreescribia el color del <tr>)
     _CTHEAD_OLD = """      <thead>
         <tr style="background:#0D1F3C">
           <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
@@ -1433,7 +1434,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         </tr>
       </thead>
       <tbody id="ctbody"></tbody>"""
-    _CTHEAD_NEW = """      <thead>
+    _CTHEAD_OLD2 = """      <thead>
         <tr style="background:#0D1F3C">
           <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
@@ -1445,11 +1446,26 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         </tr>
       </thead>
       <tbody id="ctbody"></tbody>"""
+    _CTHEAD_NEW = """      <thead>
+        <tr style="background:#0D1F3C!important">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;min-width:120px;border-bottom:none">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Total USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo MXN</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none"></th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>"""
     if _CTHEAD_OLD in html:
         html = html.replace(_CTHEAD_OLD, _CTHEAD_NEW, 1)
-        fixes_ok.append('COSTOS-THEAD 7 columnas corregido')
-    elif 'Costo MXN' in html and 'id="ctbody"' in html:
-        fixes_ok.append('COSTOS-THEAD (ya OK)')
+        fixes_ok.append('COSTOS-THEAD azul navy con !important')
+    elif _CTHEAD_OLD2 in html:
+        html = html.replace(_CTHEAD_OLD2, _CTHEAD_NEW, 1)
+        fixes_ok.append('COSTOS-THEAD azul navy con !important')
+    elif 'background:#0D1F3C!important' in html and 'id="ctbody"' in html:
+        fixes_ok.append('COSTOS-THEAD (ya OK con !important)')
     else:
         fixes_fail.append('COSTOS-THEAD (patron no encontrado)')
 
