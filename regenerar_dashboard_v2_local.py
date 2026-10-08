@@ -1641,6 +1641,17 @@ function fRenderSaldoDia(){
     else:
         fixes_fail.append('DIV-BALANCE-COSTOS (marker no encontrado)')
 
+    # FIX SALDO-DIA-STUB: Eliminar el stub var SALDO_DIA vacío que sobreescribe los datos reales
+    # El bloque de marcadores ya inyecta el var SALDO_DIA con datos reales más arriba;
+    # el stub hardcodeado en el HTML base lo sobreescribe con ceros, borrarlo.
+    _saldo_stub = 'var SALDO_DIA = {"fecha":"","total":0,"banks":{}};
+'
+    if _saldo_stub in html:
+        html = html.replace(_saldo_stub, '', 1)
+        fixes_ok.append('SALDO-DIA-STUB (stub duplicado eliminado)')
+    else:
+        fixes_ok.append('SALDO-DIA-STUB (ya OK - sin stub)')
+
     return html
 
 
