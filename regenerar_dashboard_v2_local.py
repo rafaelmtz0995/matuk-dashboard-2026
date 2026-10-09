@@ -1818,6 +1818,15 @@ function fRenderSaldoDia(){
     else:
         fixes_ok.append('SALDO-DIA-STUB (ya OK - sin stub)')
 
+    # FIX COSTOS-TABLE-TAG: la etiqueta <table puede perderse, restaurarla si falta
+    _BROKEN_TABLE = '>\n    \n      style="width:100%;border-collapse:collapse;font-size:.78rem">\n      <thead>'
+    _FIXED_TABLE  = '>\n    \n      <table style="width:100%;border-collapse:collapse;font-size:.78rem">\n      <thead>'
+    if _BROKEN_TABLE in html:
+        html = html.replace(_BROKEN_TABLE, _FIXED_TABLE, 1)
+        fixes_ok.append('COSTOS-TABLE-TAG: <table> restaurado (tag faltante)')
+    else:
+        fixes_ok.append('COSTOS-TABLE-TAG (ya OK)')
+
     # FIX COSTOS-TABLE-GUARD: buildCostosTable necesita guard if(!tb) return
     _OLD_GUARD = "function buildCostosTable(){\n  const tb = document.getElementById('ctbody');\n  // Remember"
     _NEW_GUARD = "function buildCostosTable(){\n  const tb = document.getElementById('ctbody');\n  if(!tb) return;  // guard: tabla no disponible aun\n  // Remember"
