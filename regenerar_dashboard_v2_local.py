@@ -819,8 +819,14 @@ function buildCostosCharts(){
     CANVAS5 = '\n      <!-- GRAFICAS COSTOS -->\n      <div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">\n        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">\n          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n            <span style="color:#F59E0B;margin-right:6px">&#9679;</span>Tendencia Mensual vs Acumulado\n          </div>\n          <canvas id="costos-tendencia-chart" height="110"></canvas>\n        </div>\n        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">\n          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n            <span style="color:#1F5BA6;margin-right:6px">&#9679;</span>Total de Costos por Mes (USD)\n          </div>\n          <canvas id="costos-barras-chart" height="110"></canvas>\n        </div>\n      </div>\n'
     TABLE_ANCHOR5 = '<tbody id="ctbody">'
     import re as _re5
-    canvas_present = 'costos-tendencia-chart' in html
-    canvas_pos5 = html.find('costos-tendencia-chart')
+    # Buscar canvas SOLO dentro de view-costos (antes de view-flujo)
+    _vc_start5 = html.find('id="view-costos"')
+    _vf_start5 = html.find('id="view-flujo"')
+    _costos_section5 = html[_vc_start5:_vf_start5] if _vc_start5 != -1 and _vf_start5 != -1 else html
+    canvas_present = 'costos-tendencia-chart' in _costos_section5
+    canvas_pos5 = html.find('costos-tendencia-chart', _vc_start5) if _vc_start5 != -1 else html.find('costos-tendencia-chart')
+    if canvas_pos5 != -1 and _vf_start5 != -1 and canvas_pos5 >= _vf_start5:
+        canvas_present = False  # el canvas esta en flujo, no en costos
     table_pos5 = html.find(TABLE_ANCHOR5)
     if not canvas_present:
         # Insertar antes de la tabla
