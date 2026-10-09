@@ -1818,6 +1818,17 @@ function fRenderSaldoDia(){
     else:
         fixes_ok.append('SALDO-DIA-STUB (ya OK - sin stub)')
 
+    # FIX COSTOS-TABLE-GUARD: buildCostosTable necesita guard if(!tb) return
+    _OLD_GUARD = "function buildCostosTable(){\n  const tb = document.getElementById('ctbody');\n  // Remember"
+    _NEW_GUARD = "function buildCostosTable(){\n  const tb = document.getElementById('ctbody');\n  if(!tb) return;  // guard: tabla no disponible aun\n  // Remember"
+    if _NEW_GUARD in html:
+        fixes_ok.append('COSTOS-TABLE-GUARD (ya OK)')
+    elif _OLD_GUARD in html:
+        html = html.replace(_OLD_GUARD, _NEW_GUARD, 1)
+        fixes_ok.append('COSTOS-TABLE-GUARD: guard if(!tb) agregado a buildCostosTable')
+    else:
+        fixes_fail.append('COSTOS-TABLE-GUARD (patron no encontrado)')
+
     # FIX BANCOS-NaN: fRenderBancos debe manejar banks como objetos {mxn,usd}
     _OLD_BANCOS = (
         '  if(typeof SALDO_DIA !== \'undefined\' && SALDO_DIA.banks){\n'
