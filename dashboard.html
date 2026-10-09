@@ -547,6 +547,31 @@ footer strong{color:#fff}
   </div>
 
   <!-- AGRUPAR POR -->
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+    <span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7A99">AGRUPAR POR:</span>
+    <button onclick="setCostosGroup('cliente',this)" id="cgrp-cliente" style="padding:4px 14px;border-radius:20px;border:none;background:#0D1F3C;color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Cliente</button>
+    <button onclick="setCostosGroup('po',this)" id="cgrp-po" style="padding:4px 14px;border-radius:20px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.72rem;cursor:pointer">PO</button>
+    <button onclick="setCostosGroup('servicio',this)" id="cgrp-servicio" style="padding:4px 14px;border-radius:20px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.72rem;cursor:pointer">Servicio</button>
+  </div>
+  <div style="margin-bottom:14px">
+    <input id="costos-search" type="text" placeholder="Buscar cliente, PO o servicio..." oninput="buildCostosTable()" style="width:100%;padding:8px 14px;border:1px solid #E5E7EB;border-radius:8px;font-size:.78rem;outline:none;box-sizing:border-box">
+  </div>
+  <div style="overflow-x:auto;border-radius:10px;border:1px solid #E5E7EB">
+    <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+      <thead>
+        <tr style="background:#0D1F3C!important">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;min-width:120px;border-bottom:none">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Total USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo MXN</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none"></th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>
+    </table>
+  </div>
   <!-- /section costos desglose -->
 <!-- /section-alt -->
 <!-- HISTORIAL PASIVOS SECTION -->

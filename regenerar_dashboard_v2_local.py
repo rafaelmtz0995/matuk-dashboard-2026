@@ -1302,28 +1302,17 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append('VIEW-FLUJO-NESTING (patron END HISTORIAL PASIVOS + /view-costos no encontrado)')
 
-    # FIX COSTOS-TABLE: si el bloque de filtro de costos está truncado (sin ctbody),
-    # insertar la tabla completa con el tbody y controles necesarios.
-    _CT_CHECK = 'id="ctbody"'
-    if _CT_CHECK not in html:
-        _CT_ANCHOR_OLD = '  <div class="filter-wrap" style="margin-bottom:20px;justify-content:space-between">\n  <!-- /section-alt -->'
-        _CT_ANCHOR_NEW = """  <div class="filter-wrap" style="margin-bottom:20px;justify-content:space-between">
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-      <span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7A99;margin-right:4px">FILTRAR POR MES:</span>
-      <button onclick="filterCostosMes('TODOS',this)" id="cbtn-todos" style="padding:4px 12px;border-radius:20px;border:none;background:var(--blue);color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Todos</button>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <div style="display:flex;gap:6px" id="costos-view-toggle">
-        <button onclick="setCostosView('usd',this)" style="padding:4px 10px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;font-size:.7rem;cursor:pointer;font-weight:600">USD</button>
-        <button onclick="setCostosView('mxn',this)" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer">MXN</button>
-        <button onclick="setCostosView('both',this)" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer">Ambos</button>
-      </div>
-      <button onclick="downloadCostosCSV()" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer;display:flex;align-items:center;gap:4px">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        DESCARGAR TABLA
-      </button>
-    </div>
-  </div>
+    # FIX COSTOS-TABLE: si el bloque de filtro de costos está truncado (sin ctbody HTML),
+    # restaurar la tabla completa. El ctbody puede existir en JS pero no como elemento HTML.
+    import re as _re_ct
+    _CT_HTML_CHECK = '<tbody[^>]+id=.ctbody.'
+    _ct_html_ok = bool(_re_ct.search(_CT_HTML_CHECK, html))
+    if not _ct_html_ok:
+        # Anchor A: comentario AGRUPAR POR vacío (estado actual tras regeneración)
+        _CT_ANCHOR_A = '  <!-- AGRUPAR POR -->\n  <!-- /section costos desglose -->'
+        # Anchor B: filter-wrap truncado (estado anterior)
+        _CT_ANCHOR_B = '  <div class="filter-wrap" style="margin-bottom:20px;justify-content:space-between">\n  <!-- /section-alt -->'
+        _CT_TABLE_BLOCK = """  <!-- AGRUPAR POR -->
   <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7A99">AGRUPAR POR:</span>
     <button onclick="setCostosGroup('cliente',this)" id="cgrp-cliente" style="padding:4px 14px;border-radius:20px;border:none;background:#0D1F3C;color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Cliente</button>
@@ -1336,24 +1325,28 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
   <div style="overflow-x:auto;border-radius:10px;border:1px solid #E5E7EB">
     <table style="width:100%;border-collapse:collapse;font-size:.78rem">
       <thead>
-        <tr style="background:#0D1F3C">
-          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Otros Costos USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Total</th>
+        <tr style="background:#0D1F3C!important">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;min-width:120px;border-bottom:none">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Total USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo MXN</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none"></th>
         </tr>
       </thead>
       <tbody id="ctbody"></tbody>
     </table>
   </div>
-</div><!-- /section costos desglose -->
-<!-- /section-alt -->"""
-        if _CT_ANCHOR_OLD in html:
-            html = html.replace(_CT_ANCHOR_OLD, _CT_ANCHOR_NEW, 1)
-            fixes_ok.append('COSTOS-TABLE restaurada (ctbody insertado)')
+  <!-- /section costos desglose -->"""
+        if _CT_ANCHOR_A in html:
+            html = html.replace(_CT_ANCHOR_A, _CT_TABLE_BLOCK, 1)
+            fixes_ok.append('COSTOS-TABLE restaurada con ctbody (anchor A)')
+        elif _CT_ANCHOR_B in html:
+            html = html.replace(_CT_ANCHOR_B, _CT_TABLE_BLOCK + '\n<!-- /section-alt -->', 1)
+            fixes_ok.append('COSTOS-TABLE restaurada con ctbody (anchor B)')
         else:
-            fixes_fail.append('COSTOS-TABLE (patron filter-wrap truncado no encontrado)')
+            fixes_fail.append('COSTOS-TABLE (patron no encontrado — revisar anchor)')
     else:
         fixes_ok.append('COSTOS-TABLE (ctbody ya OK)')
 
