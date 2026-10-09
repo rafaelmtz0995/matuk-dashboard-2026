@@ -558,6 +558,20 @@ footer strong{color:#fff}
   </div>
   <div style="overflow-x:auto;border-radius:10px;border:1px solid #E5E7EB">
     
+      style="width:100%;border-collapse:collapse;font-size:.78rem">
+      <thead>
+        <tr style="background:#0D1F3C!important">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;min-width:120px;border-bottom:none">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Total USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo MXN</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none"></th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>
+    </table>
       <!-- GRAFICAS COSTOS -->
       <div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">
         <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">
@@ -573,20 +587,7 @@ footer strong{color:#fff}
           <canvas id="costos-barras-chart" height="110"></canvas>
         </div>
       </div>
-<table style="width:100%;border-collapse:collapse;font-size:.78rem">
-      <thead>
-        <tr style="background:#0D1F3C!important">
-          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;min-width:120px;border-bottom:none">Mes</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Hrs USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Otros Costos USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Total USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo MXN</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none"></th>
-        </tr>
-      </thead>
-      <tbody id="ctbody"></tbody>
-    </table>
+
   </div>
   <!-- /section costos desglose -->
 </div>
@@ -2317,11 +2318,19 @@ function fRenderBancos(){
   // Usar SALDO_DIA.banks para mostrar saldos reales actuales
   if(typeof SALDO_DIA !== 'undefined' && SALDO_DIA.banks){
     var b = SALDO_DIA.banks;
-    var fmt = function(v){ return v ? '$' + (v/1000000).toFixed(2) + 'M' : '$0'; };
+    // Cada banco puede ser un numero o un objeto {mxn, usd} — extraer valor MXN
+    var getVal = function(entry){
+      if(!entry) return 0;
+      if(typeof entry === 'number') return entry;
+      return entry.mxn || 0;
+    };
+    var fmt = function(v){ var n = getVal(v); return n ? '$' + (n/1000000).toFixed(2) + 'M' : '$0'; };
     var el;
     el = document.getElementById('fb-bbvamn'); if(el) el.textContent = fmt(b['BBVA Pesos']);
     el = document.getElementById('fb-bbvausd'); if(el) el.textContent = fmt(b['BBVA USD']);
-    el = document.getElementById('fb-bmxmn'); if(el) el.textContent = fmt(b['BMX MXN']);
+    // BMX MXN puede llamarse 'BMX MXN' o 'BMX QRO MN'
+    var bmxmn = b['BMX MXN'] || b['BMX QRO MN'] || b['BMX Pesos'] || 0;
+    el = document.getElementById('fb-bmxmn'); if(el) el.textContent = fmt(bmxmn);
     el = document.getElementById('fb-bmxusd'); if(el) el.textContent = fmt(b['BMX USD']);
   } else {
     const k = fDivisa;

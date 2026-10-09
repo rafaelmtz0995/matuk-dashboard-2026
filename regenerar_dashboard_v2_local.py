@@ -828,42 +828,34 @@ function buildCostosCharts(){
     if canvas_pos5 != -1 and _vf_start5 != -1 and canvas_pos5 >= _vf_start5:
         canvas_present = False  # el canvas esta en flujo, no en costos
     table_pos5 = html.find(TABLE_ANCHOR5)
+    _INSERT_AFTER5 = '</table>\n  </div>\n  <!-- /section costos desglose -->'
+    _REPLACEMENT5  = '</table>' + CANVAS5 + '\n  </div>\n  <!-- /section costos desglose -->'
     if not canvas_present:
-        # Insertar antes de la tabla
-        if TABLE_ANCHOR5 in html:
-            # buscar el <table> más cercano antes de ctbody
-            t_open = html.rfind('<table>', 0, table_pos5)
-            if t_open > 0:
-                html = html[:t_open] + CANVAS5 + html[t_open:]
-                fixes_ok.append("Canvas graficas costos insertado antes de tabla")
-            else:
-                fixes_fail.append("Canvas graficas costos (no se encontro <table> antes de ctbody)")
+        # Insertar DESPUES de </table> (abajo de la tabla)
+        if _INSERT_AFTER5 in html:
+            html = html.replace(_INSERT_AFTER5, _REPLACEMENT5, 1)
+            fixes_ok.append("Canvas graficas costos insertado debajo de tabla")
         else:
-            fixes_fail.append("Canvas graficas costos (ctbody no encontrado)")
-    elif canvas_pos5 > table_pos5:
-        # Gráficas están DESPUÉS de la tabla — extraerlas y moverlas antes
-        flex_start = html.rfind('<div style="display:flex', 0, canvas_pos5)
-        # El bloque termina después del canvas de barras
+            fixes_fail.append("Canvas graficas costos (anchor post-tabla no encontrado)")
+    elif canvas_pos5 < table_pos5:
+        # Graficas están ANTES de la tabla — extraerlas y moverlas despues
+        flex_start = html.rfind('<!-- GRAFICAS COSTOS -->', 0, canvas_pos5+50)
         barras_pos = html.find('costos-barras-chart', canvas_pos5)
         flex_end = html.find('</div>', barras_pos)
-        flex_end = html.find('</div>', flex_end+1)  # cierra el inner div
-        flex_end = html.find('</div>', flex_end+1)  # cierra el outer flex div
+        flex_end = html.find('</div>', flex_end+1)
+        flex_end = html.find('</div>', flex_end+1)
         flex_end += len('</div>')
         if flex_start > 0 and flex_end > flex_start:
-            canvas_block = html[flex_start:flex_end]
             html = html[:flex_start] + html[flex_end:]
-            # Insertar antes del <table> de costos
-            table_pos5b = html.find(TABLE_ANCHOR5)
-            t_open = html.rfind('<table>', 0, table_pos5b)
-            if t_open > 0:
-                html = html[:t_open] + '\n' + canvas_block + '\n\n' + html[t_open:]
-                fixes_ok.append("Canvas graficas costos movido antes de tabla")
+            if _INSERT_AFTER5 in html:
+                html = html.replace(_INSERT_AFTER5, _REPLACEMENT5, 1)
+                fixes_ok.append("Canvas graficas costos movido debajo de tabla")
             else:
-                fixes_fail.append("Canvas graficas costos (movido pero no se encontro tabla)")
+                fixes_fail.append("Canvas graficas costos (movido pero anchor no encontrado)")
         else:
             fixes_fail.append("Canvas graficas costos (no se pudo extraer bloque flex)")
     else:
-        fixes_ok.append("Canvas graficas costos (ya OK — antes de tabla)")
+        fixes_ok.append("Canvas graficas costos (ya OK — debajo de tabla)")
 
     # FIX FLUJO: botones de mes, textos ENE-XXX y subtítulo Saldo Final
     # Determinar último mes con datos en FDATA
