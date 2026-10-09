@@ -1818,6 +1818,37 @@ function fRenderSaldoDia(){
     else:
         fixes_ok.append('SALDO-DIA-STUB (ya OK - sin stub)')
 
+    # FIX BANCOS-NaN: fRenderBancos debe manejar banks como objetos {mxn,usd}
+    _OLD_BANCOS = (
+        '  if(typeof SALDO_DIA !== \'undefined\' && SALDO_DIA.banks){\n'
+        '    var b = SALDO_DIA.banks;\n'
+        '    var fmt = function(v){ return v ? \'$\' + (v/1000000).toFixed(2) + \'M\' : \'$0\'; };\n'
+        '    var el;\n'
+        '    el = document.getElementById(\'fb-bbvamn\'); if(el) el.textContent = fmt(b[\'BBVA Pesos\']);\n'
+        '    el = document.getElementById(\'fb-bbvausd\'); if(el) el.textContent = fmt(b[\'BBVA USD\']);\n'
+        '    el = document.getElementById(\'fb-bmxmn\'); if(el) el.textContent = fmt(b[\'BMX MXN\']);\n'
+        '    el = document.getElementById(\'fb-bmxusd\'); if(el) el.textContent = fmt(b[\'BMX USD\']);'
+    )
+    _NEW_BANCOS = (
+        '  if(typeof SALDO_DIA !== \'undefined\' && SALDO_DIA.banks){\n'
+        '    var b = SALDO_DIA.banks;\n'
+        '    var getVal = function(entry){ if(!entry) return 0; if(typeof entry === \'number\') return entry; return entry.mxn || 0; };\n'
+        '    var fmt = function(v){ var n = getVal(v); return n ? \'$\' + (n/1000000).toFixed(2) + \'M\' : \'$0\'; };\n'
+        '    var el;\n'
+        '    el = document.getElementById(\'fb-bbvamn\'); if(el) el.textContent = fmt(b[\'BBVA Pesos\']);\n'
+        '    el = document.getElementById(\'fb-bbvausd\'); if(el) el.textContent = fmt(b[\'BBVA USD\']);\n'
+        '    var bmxmn = b[\'BMX MXN\'] || b[\'BMX QRO MN\'] || b[\'BMX Pesos\'] || 0;\n'
+        '    el = document.getElementById(\'fb-bmxmn\'); if(el) el.textContent = fmt(bmxmn);\n'
+        '    el = document.getElementById(\'fb-bmxusd\'); if(el) el.textContent = fmt(b[\'BMX USD\']);'
+    )
+    if _NEW_BANCOS in html:
+        fixes_ok.append('BANCOS-NaN (ya OK)')
+    elif _OLD_BANCOS in html:
+        html = html.replace(_OLD_BANCOS, _NEW_BANCOS, 1)
+        fixes_ok.append('BANCOS-NaN: fRenderBancos corregido (getVal para objetos {mxn,usd})')
+    else:
+        fixes_fail.append('BANCOS-NaN (patron no encontrado)')
+
     return html
 
 
