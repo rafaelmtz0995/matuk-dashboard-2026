@@ -872,11 +872,19 @@ function buildCostosCharts(){
     # Ahora insertar graficas en el lugar correcto: entre /section-alt y HISTORIAL_MARKER
     _target = _SECTION_ALT_CLOSE + '\n' + _HISTORIAL_MARKER
     _replacement = _SECTION_ALT_CLOSE + '\n' + CANVAS5_BLOCK + _HISTORIAL_MARKER
-    if _target in html and CANVAS5_BLOCK not in html:
+    # Detectar ya-OK: el canvas de tendencia esta despues de section-alt y antes de HISTORIAL
+    _sa_pos  = html.find(_SECTION_ALT_CLOSE)
+    _hi_pos  = html.find(_HISTORIAL_MARKER)
+    _cv_pos  = html.find('id="costos-tendencia-chart"')
+    _already_ok = (_sa_pos != -1 and _hi_pos != -1 and _cv_pos != -1
+                   and _sa_pos < _cv_pos < _hi_pos)
+    if _already_ok and not _cleaned:
+        fixes_ok.append('Canvas graficas costos (ya OK — despues de tabla)')
+    elif _target in html and not _already_ok:
         html = html.replace(_target, _replacement, 1)
         fixes_ok.append('Canvas graficas costos: colocadas despues de tabla' + (' (limpiadas duplicadas)' if _cleaned else ''))
-    elif CANVAS5_BLOCK in html:
-        fixes_ok.append('Canvas graficas costos (ya OK — despues de tabla)')
+    elif _already_ok and _cleaned:
+        fixes_ok.append('Canvas graficas costos: duplicadas eliminadas (ya OK)')
     else:
         fixes_fail.append('Canvas graficas costos (anchor section-alt no encontrado)')
     # FIX FLUJO: botones de mes, textos ENE-XXX y subtítulo Saldo Final
