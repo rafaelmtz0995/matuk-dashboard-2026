@@ -494,39 +494,52 @@ def extraer_costos(tc_mes):
     return costos
 
 # ── REEMPLAZAR VARIABLE EN HTML ───────────────────────────────────────────────
+def _find_var_end(html, pos):
+    """Encuentra el fin del objeto JS {..}; que sigue a var NAME= en pos."""
+    i = html.find('{', pos)
+    if i < 0: return -1
+    depth = 0
+    j = i
+    while j < len(html):
+        if html[j] == '{': depth += 1
+        elif html[j] == '}':
+            depth -= 1
+            if depth == 0:
+                end = j + 1
+                k = end
+                while k < len(html) and html[k] in ' \t': k += 1
+                if k < len(html) and html[k] == ';': end = k + 1
+                return end
+        j += 1
+    return -1
+
 def _replace_var(html, varname, new_value_str):
-    """Reemplaza TODAS las ocurrencias de 'var VARNAME={...};' en el HTML."""
+    """Reemplaza var VARNAME={...}; — elimina duplicados y pone una sola declaracion."""
+    import re as _re
     replacement = f"var {varname}={new_value_str};"
-    count = 0
-    search_from = 0
-    while True:
-        pos = html.find(f'var {varname}', search_from)
-        if pos < 0:
-            break
-        i = html.find('{', pos)
-        if i < 0: break
-        depth = 0
-        j = i
-        while j < len(html):
-            if html[j] == '{': depth += 1
-            elif html[j] == '}':
-                depth -= 1
-                if depth == 0:
-                    end = j+1
-                    k = end
-                    while k < len(html) and html[k] in ' \t': k+=1
-                    if k < len(html) and html[k] == ';': end = k+1
-                    break
-            j += 1
-        else:
-            break
-        html = html[:pos] + replacement + html[end:]
-        search_from = pos + len(replacement)
-        count += 1
-    if count == 0:
+    pattern = f'var {varname}='
+    positions = [m.start() for m in _re.finditer(_re.escape(pattern) + r'\{', html)]
+    if not positions:
         print(f"  WARN: no se encontró 'var {varname}'")
-    else:
-        print(f"  OK var {varname} ({count} ocurrencia(s))")
+        return html
+    # Si hay mas de una, eliminar todas menos la primera y reemplazar esa
+    if len(positions) > 1:
+        # Eliminar de atras hacia adelante las extra (todas menos la primera)
+        for pos in reversed(positions[1:]):
+            end = _find_var_end(html, pos)
+            if end != -1:
+                s = pos - 1 if pos > 0 and html[pos-1] == '\n' else pos
+                html = html[:s] + html[end:]
+        # Recalcular posicion de la primera tras eliminaciones
+        positions = [m.start() for m in _re.finditer(_re.escape(pattern) + r'\{', html)]
+    # Reemplazar la unica que queda
+    pos = positions[0]
+    end = _find_var_end(html, pos)
+    if end == -1:
+        print(f"  WARN: no se pudo parsear objeto de 'var {varname}'")
+        return html
+    html = html[:pos] + replacement + html[end:]
+    print(f"  OK var {varname} (1 ocurrencia(s))")
     return html
 
 MARCA_INI = "// ─── AUTO-GENERADO POR regenerar_dashboard_v2.py"
