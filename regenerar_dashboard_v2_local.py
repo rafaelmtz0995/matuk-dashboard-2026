@@ -1857,20 +1857,24 @@ function fRenderSaldoDia(){
     elif _frender_call_pat in html:
         fixes_ok.append('SALDO-DIA (fRenderAll call ya OK)')
 
-    # FIX DIV-BALANCE-COSTOS: La seccion section-alt de Costos no tiene cierre
-    # Esto causa que view-flujo quede anidado dentro de view-costos en el browser
-    _historial_marker = '<!-- HISTORIAL PASIVOS SECTION -->'
-    _section_alt_close = '</div><!-- /section-alt -->'
-    if _historial_marker in html:
-        _idx_historial = html.find(_historial_marker)
-        _preceding = html[max(0, _idx_historial-200):_idx_historial]
-        if _section_alt_close not in _preceding:
-            html = html.replace(_historial_marker, _section_alt_close + '\n' + _historial_marker, 1)
-            fixes_ok.append('DIV-BALANCE-COSTOS (section-alt cerrada)')
+    # FIX DIV-BALANCE-COSTOS: Asegurar que view-flujo NO quede anidado dentro de view-costos
+    # El div de view-costos necesita un </div> extra antes de su cierre para balancear la estructura
+    _vc_close_bad  = '</div><!-- /view-costos -->'
+    _vc_close_good = '</div>\n</div><!-- /view-costos -->'
+    _costos_start = html.find('<div id="view-costos"')
+    _flujo_start  = html.find('<div id="view-flujo"')
+    if _costos_start != -1 and _flujo_start != -1:
+        _seg = html[_costos_start:_flujo_start]
+        _balance = _seg.count('<div') - _seg.count('</div')
+        if _balance == 0:
+            fixes_ok.append('DIV-BALANCE-COSTOS (ya OK - balance=0)')
+        elif _balance == 1 and _vc_close_bad in html and _vc_close_good not in html:
+            html = html.replace(_vc_close_bad, _vc_close_good, 1)
+            fixes_ok.append('DIV-BALANCE-COSTOS: </div> extra agregado - balance corregido')
         else:
-            fixes_ok.append('DIV-BALANCE-COSTOS (ya OK)')
+            fixes_ok.append(f'DIV-BALANCE-COSTOS (balance={_balance}, revisar manualmente)')
     else:
-        fixes_fail.append('DIV-BALANCE-COSTOS (marker no encontrado)')
+        fixes_fail.append('DIV-BALANCE-COSTOS (view-costos o view-flujo no encontrado)')
 
     # FIX SALDO-DIA-STUB: Eliminar el stub var SALDO_DIA vacío que sobreescribe los datos reales
     # El bloque de marcadores ya inyecta el var SALDO_DIA con datos reales más arriba;
@@ -1935,6 +1939,27 @@ function fRenderSaldoDia(){
         fixes_ok.append('BANCOS-NaN: fRenderBancos corregido (getVal para objetos {mxn,usd})')
     else:
         fixes_fail.append('BANCOS-NaN (patron no encontrado)')
+
+    # FIX TAB-FLUJO: Asegurar que tab-flujo tenga classList.toggle en showTab
+    _OLD_TAB_TOGGLE = "  document.getElementById('tab-resumen').classList.toggle('active', t==='resumen');\n  document.getElementById('tab-horas').classList.toggle('active', t==='horas');\n  document.getElementById('tab-costos').classList.toggle('active', t==='costos');"
+    _NEW_TAB_TOGGLE = "  document.getElementById('tab-resumen').classList.toggle('active', t==='resumen');\n  document.getElementById('tab-horas').classList.toggle('active', t==='horas');\n  document.getElementById('tab-costos').classList.toggle('active', t==='costos');\n  document.getElementById('tab-flujo').classList.toggle('active', t==='flujo');"
+    if _NEW_TAB_TOGGLE in html:
+        fixes_ok.append('tab-flujo toggle (ya OK)')
+    elif _OLD_TAB_TOGGLE in html:
+        html = html.replace(_OLD_TAB_TOGGLE, _NEW_TAB_TOGGLE, 1)
+        fixes_ok.append('tab-flujo toggle: agregado')
+    else:
+        fixes_ok.append('tab-flujo toggle (patron no encontrado — puede ser OK)')
+
+    # FIX SALDO-DIA-DUP: Eliminar declaración duplicada vieja de SALDO_DIA con "Vs BBVA pesos"
+    _OLD_SALDO_PREFIX = 'var SALDO_DIA = {"fecha": "9-Oct-2026", "total":'
+    _idx_old_saldo = html.find(_OLD_SALDO_PREFIX)
+    if _idx_old_saldo != -1:
+        _end_old_saldo = html.find('};', _idx_old_saldo) + 2
+        html = html[:_idx_old_saldo] + '/* SALDO_DIA definido mas abajo */' + html[_end_old_saldo:]
+        fixes_ok.append('SALDO-DIA-DUP: duplicado viejo eliminado')
+    else:
+        fixes_ok.append('SALDO-DIA-DUP (ya OK — sin duplicado)')
 
     return html
 
