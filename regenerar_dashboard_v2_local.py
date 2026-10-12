@@ -23,9 +23,9 @@ print(f"FLUJO : {FLUJO_FILE}")
 print(f"PAGOS : {PAGOS_FILE}")
 print(f"HTML  : {OUTPUT_HTML}")
 
-MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP']
-MES_MAP = {1:'ENE',2:'FEB',3:'MAR',4:'ABR',5:'MAY',6:'JUN',7:'JUL',8:'AGO',9:'SEP'}
-CMONTHS = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP']
+MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT']
+MES_MAP = {1:'ENE',2:'FEB',3:'MAR',4:'ABR',5:'MAY',6:'JUN',7:'JUL',8:'AGO',9:'SEP',10:'OCT'}
+CMONTHS = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT']
 
 MES_LARGO = {
     'ENERO':'ENE','FEBRERO':'FEB','MARZO':'MAR','MARZO ':'MAR','ENERO ':'ENE',
@@ -348,7 +348,7 @@ def extraer_horas():
         if not row[3] or 'HOURS' not in str(row[3]).upper(): continue
         wm = row[11]
         if not isinstance(wm, datetime.datetime) or wm.year != 2026: continue
-        if not (1 <= wm.month <= 9): continue
+        if not (1 <= wm.month <= 10): continue
         m = MES_MAP[wm.month]
 
         hrs=sf(row[13]); st=sf(row[14]); ot=sf(row[15]); dt=sf(row[16])
@@ -390,6 +390,7 @@ def extraer_costos(tc_mes):
         (2026,1):'ENE',  (2026,2):'FEB',  (2026,3):'MAR',
         (2026,4):'ABR',  (2026,5):'MAY',  (2026,6):'JUN',
         (2026,7):'JUL',  (2026,8):'AGO',  (2026,9):'SEP',
+        (2026,10):'OCT',
     }
     for row in rows[9:24]:  # filas con datos mensuales
         fecha = row[1]
@@ -720,10 +721,22 @@ def aplicar_fixes(html, ultimo_mes_real=None, fegr_extra=None, tc_mes=None):
   document.getElementById('view-flujo').style.display = t==='flujo' ? 'block' : 'none';"""
     if OLD1 in html:
         html = html.replace(OLD1, NEW1); fixes_ok.append("showTab block")
-    elif NEW1 in html:
-        fixes_ok.append("showTab block (ya OK)")
+    elif NEW1 in html or "['resumen','horas','costos','flujo'].forEach(function(v){" in html:
+        fixes_ok.append("showTab block (ya OK — forEach version)")
     else:
         fixes_fail.append("showTab block")
+
+    # FIX SHOWTAB-OVERFLOW: Los divs ocultos con display:none siguen ocupando espacio en
+    # scrollHeight, lo que hace que el scroll llegue a contenido de otras secciones.
+    _OLD_SHOWTAB = "function showTab(t){\n  document.getElementById('view-resumen').style.display = t==='resumen' ? 'block' : 'none';\n  document.getElementById('view-horas').style.display = t==='horas' ? 'block' : 'none';\n  document.getElementById('view-costos').style.display = t==='costos' ? 'block' : 'none';\n  document.getElementById('view-flujo').style.display = t==='flujo' ? 'block' : 'none';"
+    _NEW_SHOWTAB = "function showTab(t){\n  ['resumen','horas','costos','flujo'].forEach(function(v){\n    var el=document.getElementById('view-'+v);\n    if(!el) return;\n    if(v===t){ el.style.display='block'; el.style.height=''; el.style.overflow=''; }\n    else { el.style.display='none'; el.style.height='0'; el.style.overflow='hidden'; }\n  });"
+    if _NEW_SHOWTAB in html:
+        fixes_ok.append('SHOWTAB-OVERFLOW (ya OK)')
+    elif _OLD_SHOWTAB in html:
+        html = html.replace(_OLD_SHOWTAB, _NEW_SHOWTAB, 1)
+        fixes_ok.append('SHOWTAB-OVERFLOW: overflow:hidden agregado')
+    else:
+        fixes_ok.append('SHOWTAB-OVERFLOW (patron no encontrado — puede ser OK)')
 
     # FIX 2: KPI Costo Operativo en Resumen (5to KPI)
     OLD2 = "    {label:'Horas Facturadas YTD',val:horasTotal.toLocaleString('es-MX')+' hrs', sub:'ST: '+stTotal.toLocaleString('es-MX')+' · OT: '+otTotal.toLocaleString('es-MX'),accent:'#7C3AED', trend:''},"
@@ -815,48 +828,96 @@ function buildCostosCharts(){
     else:
         fixes_fail.append("showTab costos -> buildCostosCharts")
 
-    # FIX 5: Canvas HTML para graficas costos — deben estar ANTES de la tabla (ctbody)
-    CANVAS5 = '\n      <!-- GRAFICAS COSTOS -->\n      <div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">\n        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">\n          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n            <span style="color:#F59E0B;margin-right:6px">&#9679;</span>Tendencia Mensual vs Acumulado\n          </div>\n          <canvas id="costos-tendencia-chart" height="110"></canvas>\n        </div>\n        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">\n          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n            <span style="color:#1F5BA6;margin-right:6px">&#9679;</span>Total de Costos por Mes (USD)\n          </div>\n          <canvas id="costos-barras-chart" height="110"></canvas>\n        </div>\n      </div>\n'
+    # FIX 5: Canvas HTML para graficas costos
+    CANVAS5 = (
+        '\n      <!-- GRAFICAS COSTOS -->\n'
+        '      <div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">\n'
+        '        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">\n'
+        '          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n'
+        '            <span style="color:#F59E0B;margin-right:6px">&#9679;</span>Tendencia Mensual vs Acumulado\n'
+        '          </div>\n'
+        '          <canvas id="costos-tendencia-chart" height="110"></canvas>\n'
+        '        </div>\n'
+        '        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">\n'
+        '          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n'
+        '            <span style="color:#1F5BA6;margin-right:6px">&#9679;</span>Total de Costos por Mes (USD)\n'
+        '          </div>\n'
+        '          <canvas id="costos-barras-chart" height="110"></canvas>\n'
+        '        </div>\n'
+        '      </div>\n'
+    )
     TABLE_ANCHOR5 = '<tbody id="ctbody">'
-    import re as _re5
-    # Buscar canvas SOLO dentro de view-costos (antes de view-flujo)
+    _CANVAS_PLACEHOLDER = '<!-- GRAFICAS COSTOS -->'
     _vc_start5 = html.find('id="view-costos"')
     _vf_start5 = html.find('id="view-flujo"')
     _costos_section5 = html[_vc_start5:_vf_start5] if _vc_start5 != -1 and _vf_start5 != -1 else html
-    canvas_present = 'costos-tendencia-chart' in _costos_section5
+    # El canvas_present se basa en si hay un div canvas real (no solo JS que lo referencia)
+    # Si hay placeholder, siempre reemplazarlo (tiene prioridad sobre canvas_present del JS)
     canvas_pos5 = html.find('costos-tendencia-chart', _vc_start5) if _vc_start5 != -1 else html.find('costos-tendencia-chart')
+    # canvas_present = True solo si hay un <canvas id="costos-tendencia-chart"> (no solo JS)
+    _canvas_div_present = '<canvas id="costos-tendencia-chart"' in _costos_section5
+    canvas_present = _canvas_div_present
     if canvas_pos5 != -1 and _vf_start5 != -1 and canvas_pos5 >= _vf_start5:
-        canvas_present = False  # el canvas esta en flujo, no en costos
+        canvas_present = False
     table_pos5 = html.find(TABLE_ANCHOR5)
-    _INSERT_AFTER5 = '</table>\n  </div>\n  <!-- /section costos desglose -->'
-    _REPLACEMENT5  = '</table>' + CANVAS5 + '\n  </div>\n  <!-- /section costos desglose -->'
-    if not canvas_present:
-        # Insertar DESPUES de </table> (abajo de la tabla)
-        if _INSERT_AFTER5 in html:
-            html = html.replace(_INSERT_AFTER5, _REPLACEMENT5, 1)
-            fixes_ok.append("Canvas graficas costos insertado debajo de tabla")
-        else:
-            fixes_fail.append("Canvas graficas costos (anchor post-tabla no encontrado)")
-    elif canvas_pos5 < table_pos5:
-        # Graficas están ANTES de la tabla — extraerlas y moverlas despues
-        flex_start = html.rfind('<!-- GRAFICAS COSTOS -->', 0, canvas_pos5+50)
-        barras_pos = html.find('costos-barras-chart', canvas_pos5)
-        flex_end = html.find('</div>', barras_pos)
-        flex_end = html.find('</div>', flex_end+1)
-        flex_end = html.find('</div>', flex_end+1)
-        flex_end += len('</div>')
-        if flex_start > 0 and flex_end > flex_start:
-            html = html[:flex_start] + html[flex_end:]
-            if _INSERT_AFTER5 in html:
-                html = html.replace(_INSERT_AFTER5, _REPLACEMENT5, 1)
-                fixes_ok.append("Canvas graficas costos movido debajo de tabla")
+    if _CANVAS_PLACEHOLDER in _costos_section5:
+        # Siempre reemplazar el placeholder cuando existe
+        ph_pos = _vc_start5 + _costos_section5.find(_CANVAS_PLACEHOLDER)
+        # Verificar si el placeholder está después de la tabla (posición incorrecta)
+        _table_end5 = html.find('</table>', _vc_start5)
+        if _table_end5 != -1 and ph_pos > _table_end5:
+            # Placeholder está DESPUÉS de </table> — eliminarlo y poner canvas ANTES de <table>
+            html = html[:ph_pos] + html[ph_pos + len(_CANVAS_PLACEHOLDER):]
+            # Encontrar <table> dentro de la sección costos
+            _t_open5 = html.rfind('<table', _vc_start5, html.find('</table>', _vc_start5))
+            if _t_open5 > 0:
+                html = html[:_t_open5] + CANVAS5.strip() + '\n      ' + html[_t_open5:]
+                fixes_ok.append('Canvas graficas costos: movido antes de tabla')
             else:
-                fixes_fail.append("Canvas graficas costos (movido pero anchor no encontrado)")
+                fixes_ok.append('Canvas graficas costos: placeholder eliminado (tabla no encontrada)')
         else:
-            fixes_fail.append("Canvas graficas costos (no se pudo extraer bloque flex)")
+            html = html[:ph_pos] + CANVAS5.strip() + html[ph_pos + len(_CANVAS_PLACEHOLDER):]
+            fixes_ok.append('Canvas graficas costos: placeholder reemplazado')
+    elif not canvas_present:
+        t_open = html.rfind('<table>', 0, table_pos5) if table_pos5 > 0 else -1
+        if t_open > 0:
+            html = html[:t_open] + CANVAS5 + html[t_open:]
+            fixes_ok.append('Canvas graficas costos insertado antes de tabla')
+        else:
+            fixes_fail.append('Canvas graficas costos (ctbody no encontrado)')
+    elif canvas_pos5 > table_pos5:
+        flex_start = html.rfind('<div style="display:flex', 0, canvas_pos5)
+        if flex_start == -1:
+            ph_pos = html.rfind(_CANVAS_PLACEHOLDER, table_pos5, canvas_pos5 + 100)
+            if ph_pos > 0:
+                html = html[:ph_pos] + html[ph_pos + len(_CANVAS_PLACEHOLDER):]
+                t_open2 = html.rfind('<table>', 0, html.find(TABLE_ANCHOR5))
+                if t_open2 > 0:
+                    html = html[:t_open2] + CANVAS5 + html[t_open2:]
+                    fixes_ok.append('Canvas graficas costos: placeholder movido antes de tabla')
+                else:
+                    fixes_fail.append('Canvas graficas costos (no se encontro tabla para mover)')
+            else:
+                fixes_fail.append('Canvas graficas costos (despues de tabla sin flex ni placeholder)')
+        else:
+            barras_pos = html.find('costos-barras-chart', canvas_pos5)
+            flex_end = html.find('</div>', barras_pos)
+            flex_end = html.find('</div>', flex_end + 1)
+            flex_end = html.find('</div>', flex_end + 1)
+            flex_end += len('</div>')
+            if flex_start > 0 and flex_end > flex_start:
+                canvas_block = html[flex_start:flex_end]
+                html = html[:flex_start] + html[flex_end:]
+                t_open3 = html.rfind('<table>', 0, html.find(TABLE_ANCHOR5))
+                if t_open3 > 0:
+                    html = html[:t_open3] + canvas_block + html[t_open3:]
+                    fixes_ok.append('Canvas graficas costos movido antes de tabla')
+                else:
+                    fixes_fail.append('Canvas graficas costos (movido pero no se encontro tabla)')
+            else:
+                fixes_fail.append('Canvas graficas costos (no se pudo extraer bloque flex)')
     else:
-        fixes_ok.append("Canvas graficas costos (ya OK — debajo de tabla)")
-
+        fixes_ok.append('Canvas graficas costos (ya OK)')
     # FIX FLUJO: botones de mes, textos ENE-XXX y subtítulo Saldo Final
     # Determinar último mes con datos en FDATA
     MESES_ORD = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
@@ -956,12 +1017,16 @@ function buildCostosCharts(){
 
     # Fix rsRender allMonths: incluir SEP en el Resumen
     old_rs = "  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO'];"
-    new_rs = "  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP'];"
-    if old_rs in html:
+    new_rs = "  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT'];"
+    old_rs2 = "  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP'];"
+    if new_rs in html:
+        fixes_ok.append('rsRender allMonths +OCT (ya OK)')
+    elif old_rs2 in html:
+        html = html.replace(old_rs2, new_rs)
+        fixes_ok.append('rsRender allMonths +OCT')
+    elif old_rs in html:
         html = html.replace(old_rs, new_rs)
-        fixes_ok.append('rsRender allMonths +SEP')
-    elif new_rs in html:
-        fixes_ok.append('rsRender allMonths +SEP (ya OK)')
+        fixes_ok.append('rsRender allMonths +OCT (desde AGO)')
 
     # Fix polyfill roundRect para Chrome < 99
     polyfill_marker = 'CanvasRenderingContext2D.prototype.roundRect'
@@ -1854,11 +1919,14 @@ function fRenderSaldoDia(){
         '    var getVal = function(entry){ if(!entry) return 0; if(typeof entry === \'number\') return entry; return entry.mxn || 0; };\n'
         '    var fmt = function(v){ var n = getVal(v); return n ? \'$\' + (n/1000000).toFixed(2) + \'M\' : \'$0\'; };\n'
         '    var el;\n'
-        '    el = document.getElementById(\'fb-bbvamn\'); if(el) el.textContent = fmt(b[\'BBVA Pesos\']);\n'
-        '    el = document.getElementById(\'fb-bbvausd\'); if(el) el.textContent = fmt(b[\'BBVA USD\']);\n'
-        '    var bmxmn = b[\'BMX MXN\'] || b[\'BMX QRO MN\'] || b[\'BMX Pesos\'] || 0;\n'
+        '    var bbvamn = b[\'BBVA Pesos\'] || b[\'Vs BBVA pesos\'] || b[\'BBVA MN\'] || 0;\n'
+        '    el = document.getElementById(\'fb-bbvamn\'); if(el) el.textContent = fmt(bbvamn);\n'
+        '    var bbvausd = b[\'BBVA USD\'] || b[\'Vs BBVA USD\'] || 0;\n'
+        '    el = document.getElementById(\'fb-bbvausd\'); if(el) el.textContent = fmt(bbvausd);\n'
+        '    var bmxmn = b[\'BMX MXN\'] || b[\'BMX QRO MN\'] || b[\'BMXQRO MN\'] || b[\'BMX Pesos\'] || 0;\n'
         '    el = document.getElementById(\'fb-bmxmn\'); if(el) el.textContent = fmt(bmxmn);\n'
-        '    el = document.getElementById(\'fb-bmxusd\'); if(el) el.textContent = fmt(b[\'BMX USD\']);'
+        '    var bmxusd = b[\'BMX USD\'] || b[\'Vs BMX USD\'] || 0;\n'
+        '    el = document.getElementById(\'fb-bmxusd\'); if(el) el.textContent = fmt(bmxusd);'
     )
     if _NEW_BANCOS in html:
         fixes_ok.append('BANCOS-NaN (ya OK)')
