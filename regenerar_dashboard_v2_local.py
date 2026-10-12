@@ -392,7 +392,7 @@ def extraer_costos(tc_mes):
         (2026,7):'JUL',  (2026,8):'AGO',  (2026,9):'SEP',
         (2026,10):'OCT',
     }
-    for row in rows[9:24]:  # filas con datos mensuales
+    for row in rows[9:26]:  # filas con datos mensuales (hasta oct)
         fecha = row[1]
         if not isinstance(fecha, datetime.datetime): continue
         key = (fecha.year, fecha.month)
