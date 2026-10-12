@@ -897,6 +897,100 @@ function buildCostosCharts(){
             fixes_ok.append('Canvas graficas costos: colocadas despues de tabla' + (' (limpiadas duplicadas)' if _cleaned else ''))
         else:
             fixes_fail.append('Canvas graficas costos (anchor section-alt no encontrado)')
+    # FIX MONTHS / FMONTHS: actualizar arrays de meses para incluir hasta el mes actual
+    # var MONTHS (pestana Horas) -> ultimo mes con horas > 0 en var DATA (ya actualizado)
+    # var FMONTHS (pestana Flujo) -> ultimo mes con datos de flujo (ultimo_mes_real)
+    import re as _re2
+    _MESES_FULL = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
+
+    # --- MONTHS: leer var DATA del HTML para detectar ultimo mes con horas > 0 ---
+    _mes_horas = 'SEP'  # fallback
+    _data_m = _re2.search(r'var DATA=(\{[^;]+\});', html)
+    if _data_m:
+        try:
+            import json as _json_h
+            _data_obj = _json_h.loads(_data_m.group(1))
+            for _mh in reversed(_MESES_FULL):
+                if _data_obj.get(_mh, {}).get('hours', 0) > 0:
+                    _mes_horas = _mh
+                    break
+        except Exception:
+            pass
+    _idx_horas = _MESES_FULL.index(_mes_horas)
+    _months_horas_js = json.dumps(_MESES_FULL[:_idx_horas + 1])
+
+    # --- FMONTHS: ultimo mes con datos de flujo (puede ser diferente a horas) ---
+    _mes_flujo = ultimo_mes_real if (ultimo_mes_real and ultimo_mes_real in _MESES_FULL) else _mes_horas
+    _idx_flujo = _MESES_FULL.index(_mes_flujo)
+    _months_flujo_js = json.dumps(_MESES_FULL[:_idx_flujo + 1])
+
+    # Reemplazar var MONTHS (horas)
+    _old_months = _re2.search(r'var MONTHS\s*=\s*\[[^\]]*\]\s*;', html)
+    if _old_months:
+        _new_months = f'var MONTHS={_months_horas_js};'
+        if html[_old_months.start():_old_months.end()] != _new_months:
+            html = html[:_old_months.start()] + _new_months + html[_old_months.end():]
+            fixes_ok.append(f'var MONTHS actualizado hasta {_mes_horas}')
+        else:
+            fixes_ok.append(f'var MONTHS ya OK ({_mes_horas})')
+    else:
+        fixes_fail.append('var MONTHS no encontrado')
+    # Reemplazar var FMONTHS (flujo)
+    _old_fmonths = _re2.search(r'var FMONTHS\s*=\s*\[[^\]]*\]\s*;', html)
+    if _old_fmonths:
+        _new_fmonths = f'var FMONTHS={_months_flujo_js};'
+        if html[_old_fmonths.start():_old_fmonths.end()] != _new_fmonths:
+            html = html[:_old_fmonths.start()] + _new_fmonths + html[_old_fmonths.end():]
+            fixes_ok.append(f'var FMONTHS actualizado hasta {_mes_flujo}')
+        else:
+            fixes_ok.append(f'var FMONTHS ya OK ({_mes_flujo})')
+    else:
+        fixes_fail.append('var FMONTHS no encontrado')
+
+    # FIX BADGE PERIODO: actualizar "ENE – XXX 2026" en el nav con el ultimo mes con horas
+    import re as _re_badge
+    _badge_pat = _re_badge.search(r'<span class="badge-period">ENE\s*[–-]\s*\w+\s*2026</span>', html)
+    if _badge_pat:
+        _new_badge = f'<span class="badge-period">ENE – {_mes_horas} 2026</span>'
+        if html[_badge_pat.start():_badge_pat.end()] != _new_badge:
+            html = html[:_badge_pat.start()] + _new_badge + html[_badge_pat.end():]
+            fixes_ok.append(f'Badge periodo actualizado hasta {_mes_horas}')
+        else:
+            fixes_ok.append(f'Badge periodo ya OK ({_mes_horas})')
+    else:
+        fixes_fail.append('Badge periodo no encontrado')
+
+    # FIX CFILTER BUTTONS: regenerar botones de "FILTRAR POR MES" con solo los meses reales
+    # El bloque hardcoded puede tener NOV/DIC (meses futuros) que desplazan OCT fuera de pantalla
+    _btn_style = 'padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99'
+    _btn_todos = '<button onclick="cFilterMes(\'TODOS\')" data-m="TODOS" id="cbtn-todos" class="cfilter-btn active" style="padding:4px 12px;border-radius:20px;border:none;background:var(--blue);color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Todos</button>'
+    _btns_meses = '\n      '.join(
+        f'<button onclick="cFilterMes(\'{m}\')" data-m="{m}" class="cfilter-btn" style="{_btn_style}">{m}</button>'
+        for m in _MESES_FULL[:_idx_horas + 1]  # solo ENE hasta ultimo mes con horas
+    )
+    _new_btn_block = (
+        '<span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7A99;margin-right:4px">FILTRAR POR MES:</span>\n'
+        f'      {_btn_todos}\n'
+        f'      {_btns_meses}'
+    )
+    _cfilter_ini = html.find('<!-- FILTRAR POR MES -->')
+    if _cfilter_ini >= 0:
+        # Buscar el div interno que contiene los botones (primer <div> despues del marcador)
+        _inner_div_start = html.find('<div style="display:flex;gap:6px', _cfilter_ini)
+        if _inner_div_start >= 0:
+            _inner_div_end = html.find('</div>', _inner_div_start) + len('</div>')
+            _old_inner = html[_inner_div_start:_inner_div_end]
+            _new_inner = f'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">\n      {_new_btn_block}\n    </div>'
+            if _old_inner != _new_inner:
+                html = html[:_inner_div_start] + _new_inner + html[_inner_div_end:]
+                fixes_ok.append(f'Botones cFilterMes regenerados hasta {_mes_horas}')
+            else:
+                fixes_ok.append(f'Botones cFilterMes ya OK ({_mes_horas})')
+        else:
+            fixes_fail.append('cFilterMes: inner div no encontrado')
+    else:
+        fixes_fail.append('cFilterMes: marcador FILTRAR POR MES no encontrado')
+
     # FIX FLUJO: botones de mes, textos ENE-XXX y subtítulo Saldo Final
     # Determinar último mes con datos en FDATA
     MESES_ORD = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
