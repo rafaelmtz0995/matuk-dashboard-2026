@@ -854,39 +854,36 @@ function buildCostosCharts(){
     _vf_start5 = html.find('id="view-flujo"')
     _costos_section5 = html[_vc_start5:_vf_start5] if _vc_start5 != -1 and _vf_start5 != -1 else html
 
-    # Eliminar todas las ocurrencias del placeholder y canvas duplicados dentro de view-costos
-    # (pueden haberse acumulado de runs anteriores)
-    _cleaned = False
-    while _CANVAS_PLACEHOLDER in _costos_section5:
-        _ph_abs = _vc_start5 + _costos_section5.find(_CANVAS_PLACEHOLDER)
-        # Eliminar el bloque de graficas que empieza en el placeholder hasta el siguiente </div> de cierre del flex
-        _ph_end = html.find(_HISTORIAL_MARKER, _ph_abs)
-        if _ph_end == -1:
-            _ph_end = _ph_abs + len(_CANVAS_PLACEHOLDER)
-        html = html[:_ph_abs] + html[_ph_end:]
-        _vc_start5 = html.find('id="view-costos"')
-        _vf_start5 = html.find('id="view-flujo"')
-        _costos_section5 = html[_vc_start5:_vf_start5] if _vc_start5 != -1 and _vf_start5 != -1 else html
-        _cleaned = True
-
-    # Ahora insertar graficas en el lugar correcto: entre /section-alt y HISTORIAL_MARKER
-    _target = _SECTION_ALT_CLOSE + '\n' + _HISTORIAL_MARKER
-    _replacement = _SECTION_ALT_CLOSE + '\n' + CANVAS5_BLOCK + _HISTORIAL_MARKER
-    # Detectar ya-OK: el canvas de tendencia esta despues de section-alt y antes de HISTORIAL
+    # Verificar ya-OK PRIMERO: canvas en posicion correcta (despues section-alt, antes HISTORIAL)
     _sa_pos  = html.find(_SECTION_ALT_CLOSE)
     _hi_pos  = html.find(_HISTORIAL_MARKER)
     _cv_pos  = html.find('id="costos-tendencia-chart"')
     _already_ok = (_sa_pos != -1 and _hi_pos != -1 and _cv_pos != -1
                    and _sa_pos < _cv_pos < _hi_pos)
-    if _already_ok and not _cleaned:
+
+    if _already_ok:
+        # Canvas ya esta en posicion correcta — no tocar nada
         fixes_ok.append('Canvas graficas costos (ya OK — despues de tabla)')
-    elif _target in html and not _already_ok:
-        html = html.replace(_target, _replacement, 1)
-        fixes_ok.append('Canvas graficas costos: colocadas despues de tabla' + (' (limpiadas duplicadas)' if _cleaned else ''))
-    elif _already_ok and _cleaned:
-        fixes_ok.append('Canvas graficas costos: duplicadas eliminadas (ya OK)')
     else:
-        fixes_fail.append('Canvas graficas costos (anchor section-alt no encontrado)')
+        # Canvas no esta en posicion correcta — limpiar y reinsertar
+        _cleaned = False
+        while _CANVAS_PLACEHOLDER in _costos_section5:
+            _ph_abs = _vc_start5 + _costos_section5.find(_CANVAS_PLACEHOLDER)
+            _ph_end = html.find(_HISTORIAL_MARKER, _ph_abs)
+            if _ph_end == -1:
+                _ph_end = _ph_abs + len(_CANVAS_PLACEHOLDER)
+            html = html[:_ph_abs] + html[_ph_end:]
+            _vc_start5 = html.find('id="view-costos"')
+            _vf_start5 = html.find('id="view-flujo"')
+            _costos_section5 = html[_vc_start5:_vf_start5] if _vc_start5 != -1 and _vf_start5 != -1 else html
+            _cleaned = True
+        _target = _SECTION_ALT_CLOSE + '\n' + _HISTORIAL_MARKER
+        _replacement = _SECTION_ALT_CLOSE + '\n' + CANVAS5_BLOCK + _HISTORIAL_MARKER
+        if _target in html:
+            html = html.replace(_target, _replacement, 1)
+            fixes_ok.append('Canvas graficas costos: colocadas despues de tabla' + (' (limpiadas duplicadas)' if _cleaned else ''))
+        else:
+            fixes_fail.append('Canvas graficas costos (anchor section-alt no encontrado)')
     # FIX FLUJO: botones de mes, textos ENE-XXX y subtítulo Saldo Final
     # Determinar último mes con datos en FDATA
     MESES_ORD = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
