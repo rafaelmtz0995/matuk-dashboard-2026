@@ -1518,7 +1518,7 @@ function toggleCostosDetail(subId, mes, label){
     tr2.id=`cdet-${subId}-${j}`;
     const rateStr = `<span style="display:inline-block;min-width:58px;text-align:center;font-size:.67rem;font-weight:700;padding:2px 4px;border-radius:4px;${e.rate>0?'background:rgba(232,160,32,.13);color:#B8720A':'opacity:0'}">${e.rate>0?'$'+fN(e.rate)+'/hr':'​'}</span>`;
     const hrsStr = `<span style="display:inline-block;min-width:58px;text-align:center;font-size:.67rem;font-weight:700;padding:2px 4px;border-radius:4px;${hrs>0?'background:rgba(31,91,166,.1);color:#1F5BA6':'opacity:0'}">${hrs>0?fN(hrs)+' hrs':'​'}</span>`;
-    const rateViat = (e.rate_viat && e.rate_viat > 0) ? e.rate_viat : ((RATE_VIAT && RATE_VIAT[e.n.toUpperCase()]) || 0);
+    const rateViat = (e.rate_viat != null && e.rate_viat > 0) ? e.rate_viat : 0;
     const viatStr = `<span style="display:inline-block;min-width:62px;text-align:center;font-size:.67rem;font-weight:700;padding:2px 4px;border-radius:4px;${rateViat>0?'background:rgba(5,150,105,.1);color:#059669':'opacity:0'}">${rateViat>0?'$'+rateViat+'/día':'​'}</span>`;
     const dias = hrs>0 ? Math.round(hrs/8) : 0;
     const diasStr = `<span style="display:inline-block;min-width:28px;text-align:center;font-size:.67rem;font-weight:700;padding:2px 4px;border-radius:4px;${dias>0?'background:rgba(13,31,60,.08);color:#0D1F3C':'opacity:0'}">${dias>0?dias+'d':'​'}</span>`;

@@ -250,8 +250,7 @@ def extraer_pasivo():
     cierres = {}
     vivo = None
     detalle = {}
-    detalle_rec = {}
-    mode = None  # 'vivo', 'historico', 'detalle_cliente', 'detalle_recurso'
+    mode = None  # 'vivo', 'historico', 'detalle'
 
     for row in rows:
         if not row or len(row) < 2: continue
@@ -262,13 +261,8 @@ def extraer_pasivo():
             mode = 'vivo'; continue
         if 'CIERRES HIST' in col1u:
             mode = 'historico'; continue
-        if 'DETALLE HIST' in col1u and 'RECURSO' in col1u:
-            mode = 'detalle_recurso'; continue
-        if 'DETALLE HIST' in col1u and 'CLIENTE' in col1u:
-            mode = 'detalle_cliente'; continue
         if 'DETALLE HIST' in col1u:
-            # fallback: si no especifica, asume cliente (compatibilidad)
-            mode = 'detalle_cliente'; continue
+            mode = 'detalle'; continue
         if 'C' in col1u and 'MO CERRAR' in col1u:
             mode = None; continue
 
@@ -295,7 +289,7 @@ def extraer_pasivo():
                 'is_vivo': False,
             }
 
-        elif mode == 'detalle_cliente' and mes_str in MES_STR:
+        elif mode == 'detalle' and mes_str in MES_STR:
             m = MES_STR[mes_str]
             cliente = str(row[2]).strip() if row[2] else ''
             if not cliente or cliente.upper() in ('CLIENTE', 'TOTAL', 'MES CIERRE'): continue
@@ -311,30 +305,11 @@ def extraer_pasivo():
                 'neto_usd': round(sf(row[8]), 2) if len(row)>8 and row[8] else 0,
             })
 
-        elif mode == 'detalle_recurso' and mes_str in MES_STR:
-            m = MES_STR[mes_str]
-            recurso = str(row[2]).strip() if row[2] else ''
-            if not recurso or recurso.upper() in ('RECURSO', 'TOTAL', 'MES CIERRE'): continue
-            if 'TOTAL' in recurso.upper(): continue
-            if m not in detalle_rec: detalle_rec[m] = []
-            moneda = str(row[3]).strip().upper() if row[3] else 'MXN'
-            detalle_rec[m].append({
-                'r': recurso,
-                'mon': moneda,
-                'h': round(sf(row[4]), 2),
-                'usd': round(sf(row[5]), 2),
-                'mxn': round(sf(row[6]), 2),
-                'neto_mxn': round(sf(row[7]), 2),
-                'neto_usd': round(sf(row[8]), 2) if len(row)>8 and row[8] else 0,
-            })
-
     wb.close()
     print(f"    Cierres: {list(cierres.keys())}  Vivo: {vivo}")
     for m, d in cierres.items():
         print(f"    {m}: horas={d['horas']:.1f} usd=${d['total_usd']:,.0f} neto_mxn=${d['neto_mxn']:,.0f}")
-    for m, recs in detalle_rec.items():
-        print(f"    Recursos {m}: {len(recs)} registros")
-    return cierres, detalle, detalle_rec, vivo
+    return cierres, detalle, vivo
 
 # ── HORAS detalle para DATA y BREAKDOWN ──────────────────────────────────────
 def extraer_horas():
@@ -343,12 +318,14 @@ def extraer_horas():
     ws = wb['2026']
     data   = {m:{'hours':0.0,'st':0.0,'ot':0.0,'dt':0.0,'res':set()} for m in MESES}
     bd_tmp = {m:{} for m in MESES}
+    nm_tmp = {m:{} for m in MESES}  # nombres con horas por (svc,po,cust)
+    cres_tmp = {m:{} for m in MESES}  # CRES: keyed por (po,name,svc,cust)
 
     for row in ws.iter_rows(min_row=2, values_only=True):
         if not row[3] or 'HOURS' not in str(row[3]).upper(): continue
         wm = row[11]
         if not isinstance(wm, datetime.datetime) or wm.year != 2026: continue
-        if not (1 <= wm.month <= 10): continue
+        if wm.month not in MES_MAP: continue
         m = MES_MAP[wm.month]
 
         hrs=sf(row[13]); st=sf(row[14]); ot=sf(row[15]); dt=sf(row[16])
@@ -356,6 +333,16 @@ def extraer_horas():
         svc  = str(row[4]).strip() if row[4] else ""
         po   = str(row[5]).strip() if row[5] else ""
         cust = str(row[6]).strip().upper() if row[6] else ""
+        proj = str(row[7]).strip() if row[7] else ""
+        wd   = sf(row[12])  # WORKED DAYS (col 12)
+        try: rate_val = float(row[21]) if row[21] else 0.0
+        except: rate_val = 0.0
+        try: rate_viat = float(row[24]) if len(row) > 24 and row[24] else 0.0
+        except: rate_viat = 0.0
+        # Calcular costo de horas desde horas del row × rate (NO usar row[28]/row[30] que son YTD acumulado)
+        hrs_row  = st + ot + dt  # horas reales de este row
+        days_row = wd if wd > 0 else (round(hrs_row / 8) if hrs_row > 0 else 0)
+        perdiem_row = rate_viat * days_row  # costo viáticos de este row (USD)
 
         data[m]['hours']+=hrs; data[m]['st']+=st; data[m]['ot']+=ot; data[m]['dt']+=dt
         if name: data[m]['res'].add(name)
@@ -365,6 +352,37 @@ def extraer_horas():
             bd_tmp[m][key]={'s':svc,'po':po,'c':cust,'st':0,'ot':0,'dt':0,'r':set()}
         bd_tmp[m][key]['st']+=st; bd_tmp[m][key]['ot']+=ot; bd_tmp[m][key]['dt']+=dt
         if name: bd_tmp[m][key]['r'].add(name)
+        if name:
+            if key not in nm_tmp[m]: nm_tmp[m][key]={}
+            if name not in nm_tmp[m][key]: nm_tmp[m][key][name]={'st':0,'ot':0,'dt':0,'t':0,'proj':''}
+            nm_tmp[m][key][name]['st']+=st; nm_tmp[m][key][name]['ot']+=ot
+            nm_tmp[m][key][name]['dt']+=dt; nm_tmp[m][key][name]['t']+=hrs_row
+            if proj and not nm_tmp[m][key][name]['proj']: nm_tmp[m][key][name]['proj']=proj
+        # CRES: separar por divisa (USA→usd_hrs/usd_cost, MXN→mxn_hrs/mxn_cost)
+        divisa = str(row[19]).strip().upper() if len(row) > 19 and row[19] else 'USA'
+        es_mxn = (divisa == 'MXN')
+        if name and svc and po and cust:
+            ckey = (po, name, svc, cust)
+            if ckey not in cres_tmp[m]:
+                cres_tmp[m][ckey] = {'n':name,'po':po,'svc':svc,'c':cust,'proj':proj,
+                                     'rate':rate_val,'rate_viat':rate_viat,
+                                     'usd_hrs':0.0,'mxn_hrs':0.0,
+                                     'usd_cost':0.0,'mxn_cost':0.0,
+                                     'perdiem':0.0,'days':0.0,
+                                     'st':0.0,'ot':0.0,'dt':0.0}
+            if es_mxn:
+                cres_tmp[m][ckey]['mxn_hrs']  += hrs_row           # horas reales MXN
+                cres_tmp[m][ckey]['mxn_cost'] += hrs_row * rate_val  # costo en MXN
+            else:
+                cres_tmp[m][ckey]['usd_hrs']  += hrs_row           # horas reales USD
+                cres_tmp[m][ckey]['usd_cost'] += hrs_row * rate_val  # costo en USD
+            cres_tmp[m][ckey]['perdiem'] += perdiem_row   # costo viáticos (USD)
+            cres_tmp[m][ckey]['days']    += days_row      # dias trabajados
+            if rate_viat > cres_tmp[m][ckey]['rate_viat']: cres_tmp[m][ckey]['rate_viat'] = rate_viat  # tomar el maximo del mes
+            cres_tmp[m][ckey]['st'] += st
+            cres_tmp[m][ckey]['ot'] += ot
+            cres_tmp[m][ckey]['dt'] += dt
+            if proj and not cres_tmp[m][ckey]['proj']: cres_tmp[m][ckey]['proj'] = proj
 
     breakdown={}
     for m in MESES:
@@ -373,8 +391,35 @@ def extraer_horas():
                 't':round(v['st']+v['ot']+v['dt'],2),'r':len(v['r'])}
                for v in bd_tmp[m].values()]
         breakdown[m]=sorted(items,key=lambda x:-x['t'])
+    # Construir RESOURCES: detalle de nombres por (svc,po,cust) y mes
+    resources={}
+    for m in MESES:
+        res_items=[]
+        for key,nms in nm_tmp[m].items():
+            svc2,po2,cust2 = key
+            names_list=[{'n':nm,'proj':d.get('proj',''),'st':round(d['st'],2),'ot':round(d['ot'],2),
+                         'dt':round(d['dt'],2),'t':round(d['t'],2)}
+                        for nm,d in sorted(nms.items(),key=lambda x:-x[1]['t'])]
+            res_items.append({'s':svc2,'po':po2,'c':cust2,'names':names_list})
+        resources[m]=sorted(res_items,key=lambda x:-sum(n['t'] for n in x['names']))
+    # Construir CRES: cres_tmp[m] ya es dict keyed por (po,name,svc,cust)
+    cres = {}
+    for m in MESES:
+        entries = sorted(cres_tmp[m].values(),
+                         key=lambda x: -((x['usd_cost']+x.get('perdiem',0))+x['mxn_cost']))
+        for e in entries:
+            e['usd_hrs']  = round(e['usd_hrs'], 2)   # horas reales USD workers
+            e['mxn_hrs']  = round(e['mxn_hrs'], 2)   # horas reales MXN workers
+            e['usd_cost'] = round(e['usd_cost'], 2)  # costo en USD
+            e['mxn_cost'] = round(e['mxn_cost'], 2)  # costo en MXN
+            e['perdiem']  = round(e.get('perdiem', 0), 2)  # costo viáticos USD
+            e['days']     = int(e.get('days', 0))          # dias trabajados
+            e['st']  = round(e['st'], 2)
+            e['ot']  = round(e['ot'], 2)
+            e['dt']  = round(e['dt'], 2)
+        cres[m] = entries
     wb.close()
-    return data, breakdown
+    return data, breakdown, resources, cres
 
 # ── COSTOS desde hoja COSTOS + by_cust desde hoja 2026 ───────────────────────
 def extraer_costos(tc_mes):
@@ -392,7 +437,7 @@ def extraer_costos(tc_mes):
         (2026,7):'JUL',  (2026,8):'AGO',  (2026,9):'SEP',
         (2026,10):'OCT',
     }
-    for row in rows[9:26]:  # filas con datos mensuales (hasta oct)
+    for row in rows[9:26]:  # filas con datos mensuales (hasta OCT)
         fecha = row[1]
         if not isinstance(fecha, datetime.datetime): continue
         key = (fecha.year, fecha.month)
@@ -419,7 +464,7 @@ def extraer_costos(tc_mes):
 
     # 2. by_cust desde hoja 2026 — col28=Costo Hrs TOTAL USD, col30=Costo TOTAL USD
     ws2 = wb['2026']
-    by_cust_tmp = {m:{} for m in CMONTHS}
+    by_cust_tmp = {m:{} for m in list(MES_KEY.values()) + list(CMONTHS)}
 
     for row in ws2.iter_rows(min_row=2, values_only=True):
         if not row[3] or 'HOURS' not in str(row[3]).upper(): continue
@@ -494,59 +539,69 @@ def extraer_costos(tc_mes):
     return costos
 
 # ── REEMPLAZAR VARIABLE EN HTML ───────────────────────────────────────────────
-def _find_var_end(html, pos):
-    """Encuentra el fin del objeto JS {..}; que sigue a var NAME= en pos."""
-    i = html.find('{', pos)
-    if i < 0: return -1
-    depth = 0
-    j = i
-    while j < len(html):
-        if html[j] == '{': depth += 1
-        elif html[j] == '}':
-            depth -= 1
-            if depth == 0:
-                end = j + 1
-                k = end
-                while k < len(html) and html[k] in ' \t': k += 1
-                if k < len(html) and html[k] == ';': end = k + 1
-                return end
-        j += 1
-    return -1
-
 def _replace_var(html, varname, new_value_str):
-    """Reemplaza var VARNAME={...}; — elimina duplicados y pone una sola declaracion."""
-    import re as _re
+    """Reemplaza TODAS las ocurrencias de 'var VARNAME={...};' en el HTML.
+    Usa 'var VARNAME=' (con =) para evitar match parcial con variables de nombre similar
+    (p.ej. var COSTOS no debe hacer match en var COSTOS_OTROS_USD).
+    """
     replacement = f"var {varname}={new_value_str};"
-    pattern = f'var {varname}='
-    positions = [m.start() for m in _re.finditer(_re.escape(pattern) + r'\{', html)]
-    if not positions:
+    # Patron exacto: 'var VARNAME=' seguido de '{' o '[' (primer char del valor)
+    needle = f'var {varname}='
+    count = 0
+    search_from = 0
+    while True:
+        pos = html.find(needle, search_from)
+        if pos < 0:
+            break
+        # Buscar el primer '{' o '[' despues del '='
+        eq_pos = pos + len(needle)
+        # Saltar espacios/tabs entre '=' y valor
+        i = eq_pos
+        while i < len(html) and html[i] in ' \t': i += 1
+        if i >= len(html): break
+        open_char = html[i]
+        if open_char == '{':
+            close_char = '}'
+        elif open_char == '[':
+            close_char = ']'
+        else:
+            # Valor escalar (string, numero) — buscar ';'
+            semi = html.find(';', eq_pos)
+            if semi < 0: break
+            end = semi + 1
+            html = html[:pos] + replacement + html[end:]
+            search_from = pos + len(replacement)
+            count += 1
+            continue
+        depth = 0
+        j = i
+        while j < len(html):
+            if html[j] == open_char: depth += 1
+            elif html[j] == close_char:
+                depth -= 1
+                if depth == 0:
+                    end = j+1
+                    k = end
+                    while k < len(html) and html[k] in ' \t': k+=1
+                    if k < len(html) and html[k] == ';': end = k+1
+                    break
+            j += 1
+        else:
+            break
+        html = html[:pos] + replacement + html[end:]
+        search_from = pos + len(replacement)
+        count += 1
+    if count == 0:
         print(f"  WARN: no se encontró 'var {varname}'")
-        return html
-    # Si hay mas de una, eliminar todas menos la primera y reemplazar esa
-    if len(positions) > 1:
-        # Eliminar de atras hacia adelante las extra (todas menos la primera)
-        for pos in reversed(positions[1:]):
-            end = _find_var_end(html, pos)
-            if end != -1:
-                s = pos - 1 if pos > 0 and html[pos-1] == '\n' else pos
-                html = html[:s] + html[end:]
-        # Recalcular posicion de la primera tras eliminaciones
-        positions = [m.start() for m in _re.finditer(_re.escape(pattern) + r'\{', html)]
-    # Reemplazar la unica que queda
-    pos = positions[0]
-    end = _find_var_end(html, pos)
-    if end == -1:
-        print(f"  WARN: no se pudo parsear objeto de 'var {varname}'")
-        return html
-    html = html[:pos] + replacement + html[end:]
-    print(f"  OK var {varname} (1 ocurrencia(s))")
+    else:
+        print(f"  OK var {varname} ({count} ocurrencia(s))")
     return html
 
 MARCA_INI = "// ─── AUTO-GENERADO POR regenerar_dashboard_v2.py"
 MARCA_FIN = "// ─── FIN DATOS AUTO-GENERADOS"
 
 def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
-                    horas_data, breakdown, costos, fdata, fegr_extra=None, saldo_dia=None):
+                    horas_data, breakdown, resources, cres, costos, fdata, fegr_extra=None):
     if not os.path.exists(OUTPUT_HTML):
         print(f"ERROR: {OUTPUT_HTML}"); sys.exit(1)
 
@@ -562,6 +617,23 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
 
     # var BREAKDOWN
     html = _replace_var(html, 'BREAKDOWN', json.dumps(breakdown, ensure_ascii=False))
+
+    # var RESOURCES (detalle de nombres por mes)
+    html = _replace_var(html, 'RESOURCES', json.dumps(resources, ensure_ascii=False))
+
+    # var CRES (detalle de recursos con costos por mes)
+    html = _replace_var(html, 'CRES', json.dumps(cres, ensure_ascii=False))
+
+    # var RATE_VIAT: construir desde CRES (todos los workers con su rate diario de viáticos)
+    # Esto asegura que el badge "$x/día" aparezca para TODOS los workers, incluyendo los de Kolbenschmidt
+    _rate_viat_map = {}
+    for _m, _entries in cres.items():
+        for _e in _entries:
+            _name = _e.get('n', '').upper()
+            _rv = _e.get('rate_viat', 0)
+            if _name and (_name not in _rate_viat_map or _rv > 0):
+                _rate_viat_map[_name] = _rv
+    html = _replace_var(html, 'RATE_VIAT', json.dumps(_rate_viat_map, ensure_ascii=False))
 
     # var FDATA
     fdata_r = {m:{k:round(v,2) for k,v in row.items()} for m,row in fdata.items()}
@@ -615,9 +687,6 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
             else:
                 costos_mes_simple[m]={'horas_usd':0,'total_usd':0,'total_mxn':0}
         L.append("var FCOSTOS_MES = "+json.dumps(costos_mes_simple,ensure_ascii=False)+";")
-        # SALDO_DIA: saldo diario de bancos desde CONCENTRADO
-        if saldo_dia:
-            L.append("var SALDO_DIA = "+json.dumps(saldo_dia, ensure_ascii=False)+";")
         # FEGR_EXTRA no va en el bloque — se actualiza via _replace_var abajo
 
         bloque = MARCA_INI+"\n"+"\n".join(L)+"\n"+MARCA_FIN
@@ -716,6 +785,108 @@ def extraer_fegr_extra():
 
 
 # ── FIXES POST-REGENERACION ───────────────────────────────────────────────────
+
+# ── SALDO ACTUAL DE BANCOS ────────────────────────────────────────────────────
+def extraer_saldo_bancos():
+    """Lee el último saldo de los 5 bancos desde la hoja CONCENTRADO de Flujo de Caja 2026.xlsx.
+    Retorna MXN como valor principal y USD como sub-valor para cuentas en dólares.
+    banks = {'BBVA Pesos': {mxn:...}, 'BBVA USD': {mxn:..., usd:...}, ...}
+    """
+    import datetime as _dt
+    print("  Saldo bancos (CONCENTRADO - 5 bancos)...")
+    try:
+        wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
+    except Exception as e:
+        print(f"  WARN saldo_bancos: {e}")
+        return None
+
+    # Etiquetas en col 12 (idx 11) de CONCENTRADO (con strip para eliminar espacios)
+    BANCO_LABELS = {
+        'Vs BBVA pesos': {'label': 'BBVA Pesos',  'isUSD': False},
+        'Vs BBVA USD':   {'label': 'BBVA USD',    'isUSD': True},
+        'BMX USD':       {'label': 'BMX USD',     'isUSD': True},
+        'BMXQRO MN':     {'label': 'BMX QRO MN',  'isUSD': False},
+        'BANAMEX MN':    {'label': 'Banamex MN',  'isUSD': False},
+    }
+
+    try:
+        ws_conc = wb['CONCENTRADO']
+    except Exception as e:
+        print(f"  WARN: hoja CONCENTRADO no encontrada: {e}")
+        return None
+
+    rows = list(ws_conc.iter_rows(values_only=True))
+
+    last_found = {}  # label_raw -> {mxn, usd?}
+    total_mxn = None
+    meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+
+    for r in rows:
+        if len(r) <= 12:
+            continue
+        label_cell = r[11]
+        if label_cell is None:
+            continue
+        label = str(label_cell).strip()  # strip: etiquetas pueden tener espacios
+
+        if label in BANCO_LABELS:
+            mxn_val = r[12] if len(r) > 12 else None
+            usd_val = r[13] if len(r) > 13 else None
+            if isinstance(mxn_val, (int, float)):
+                entry = {'mxn': round(float(mxn_val), 2)}
+                if BANCO_LABELS[label]['isUSD'] and isinstance(usd_val, (int, float)):
+                    entry['usd'] = round(float(usd_val), 2)
+                last_found[label] = entry
+        elif label == 'SALDO':
+            mxn_val = r[12] if len(r) > 12 else None
+            if isinstance(mxn_val, (int, float)):
+                total_mxn = round(float(mxn_val), 2)
+
+    # Fecha del último bloque: en CONCENTRADO la fecha está en col 3 (idx 3)
+    # Buscar hacia arriba desde el último banco encontrado
+    ultima_fecha_datos = None
+    for i in range(len(rows)-1, -1, -1):
+        r = rows[i]
+        if len(r) > 11 and r[11] is not None:
+            label = str(r[11]).strip()
+            if label in BANCO_LABELS:
+                for j in range(i, max(i-30, -1), -1):
+                    rr = rows[j]
+                    if rr and len(rr) > 3 and isinstance(rr[3], _dt.datetime):
+                        ultima_fecha_datos = rr[3]
+                        break
+                break
+    # Fallback: última fecha en col 3
+    if ultima_fecha_datos is None:
+        for r in reversed(rows):
+            if r and len(r) > 3 and isinstance(r[3], _dt.datetime):
+                ultima_fecha_datos = r[3]
+                break
+
+    # Construir banks: {label_display: {mxn, usd?}}
+    banks = {}
+    for label_raw, info in BANCO_LABELS.items():
+        if label_raw in last_found:
+            banks[info['label']] = last_found[label_raw]
+
+    if total_mxn is None:
+        total_mxn = round(sum(v['mxn'] for v in banks.values()), 2)
+
+    fecha_str = None
+    if ultima_fecha_datos:
+        fecha_str = f"{ultima_fecha_datos.day}-{meses[ultima_fecha_datos.month-1]}-{ultima_fecha_datos.year}"
+
+    import datetime as _dt2
+    hoy = _dt2.date.today()
+    fecha_gen = f"{hoy.day}-{meses[hoy.month-1]}-{hoy.year}"
+
+    print(f"    Total: {total_mxn:,.0f} MXN | Último dato: {fecha_str} | Generado: {fecha_gen}")
+    for lbl, v in banks.items():
+        usd_str = f" / USD {v['usd']:,.2f}" if 'usd' in v else ''
+        print(f"      {lbl}: MXN {v['mxn']:,.2f}{usd_str}")
+
+    return {'fecha': fecha_str, 'fecha_generacion': fecha_gen, 'total': total_mxn, 'banks': banks}
+
 def aplicar_fixes(html, ultimo_mes_real=None, fegr_extra=None, tc_mes=None):
     """Re-aplica todos los fixes manuales que el regenerador sobreescribe."""
     fixes_ok = []
@@ -734,22 +905,10 @@ def aplicar_fixes(html, ultimo_mes_real=None, fegr_extra=None, tc_mes=None):
   document.getElementById('view-flujo').style.display = t==='flujo' ? 'block' : 'none';"""
     if OLD1 in html:
         html = html.replace(OLD1, NEW1); fixes_ok.append("showTab block")
-    elif NEW1 in html or "['resumen','horas','costos','flujo'].forEach(function(v){" in html:
-        fixes_ok.append("showTab block (ya OK — forEach version)")
+    elif NEW1 in html:
+        fixes_ok.append("showTab block (ya OK)")
     else:
         fixes_fail.append("showTab block")
-
-    # FIX SHOWTAB-OVERFLOW: Los divs ocultos con display:none siguen ocupando espacio en
-    # scrollHeight, lo que hace que el scroll llegue a contenido de otras secciones.
-    _OLD_SHOWTAB = "function showTab(t){\n  document.getElementById('view-resumen').style.display = t==='resumen' ? 'block' : 'none';\n  document.getElementById('view-horas').style.display = t==='horas' ? 'block' : 'none';\n  document.getElementById('view-costos').style.display = t==='costos' ? 'block' : 'none';\n  document.getElementById('view-flujo').style.display = t==='flujo' ? 'block' : 'none';"
-    _NEW_SHOWTAB = "function showTab(t){\n  ['resumen','horas','costos','flujo'].forEach(function(v){\n    var el=document.getElementById('view-'+v);\n    if(!el) return;\n    if(v===t){ el.style.display='block'; el.style.height=''; el.style.overflow=''; }\n    else { el.style.display='none'; el.style.height='0'; el.style.overflow='hidden'; }\n  });"
-    if _NEW_SHOWTAB in html:
-        fixes_ok.append('SHOWTAB-OVERFLOW (ya OK)')
-    elif _OLD_SHOWTAB in html:
-        html = html.replace(_OLD_SHOWTAB, _NEW_SHOWTAB, 1)
-        fixes_ok.append('SHOWTAB-OVERFLOW: overflow:hidden agregado')
-    else:
-        fixes_ok.append('SHOWTAB-OVERFLOW (patron no encontrado — puede ser OK)')
 
     # FIX 2: KPI Costo Operativo en Resumen (5to KPI)
     OLD2 = "    {label:'Horas Facturadas YTD',val:horasTotal.toLocaleString('es-MX')+' hrs', sub:'ST: '+stTotal.toLocaleString('es-MX')+' · OT: '+otTotal.toLocaleString('es-MX'),accent:'#7C3AED', trend:''},"
@@ -764,7 +923,7 @@ def aplicar_fixes(html, ultimo_mes_real=None, fegr_extra=None, tc_mes=None):
     # FIX 3: cFilterMes llama buildCostosCharts
     OLD3 = """function cFilterMes(m){
   cCurrentMes = m;
-  document.querySelectorAll('.cfilter-btn').forEach(b => b.classList.toggle('active', b.dataset.m === m));
+  document.querySelectorAll('.cfilter-btn').forEach(b => { const bm = b.dataset.m || b.getAttribute('onclick').match(/cFilterMes.'([^']+)'/)?.[1] || ''; b.classList.toggle('active', bm === m); });
   // Clear search if active
   const inp = document.getElementById('cSearchInput');
   if(inp && inp.value){ inp.value=''; searchCostosTable(''); }
@@ -772,7 +931,7 @@ def aplicar_fixes(html, ultimo_mes_real=None, fegr_extra=None, tc_mes=None):
 }"""
     NEW3 = """function cFilterMes(m){
   cCurrentMes = m;
-  document.querySelectorAll('.cfilter-btn').forEach(b => b.classList.toggle('active', b.dataset.m === m));
+  document.querySelectorAll('.cfilter-btn').forEach(b => { const bm = b.dataset.m || b.getAttribute('onclick').match(/cFilterMes.'([^']+)'/)?.[1] || ''; b.classList.toggle('active', bm === m); });
   // Clear search if active
   const inp = document.getElementById('cSearchInput');
   if(inp && inp.value){ inp.value=''; searchCostosTable(''); }
@@ -841,132 +1000,150 @@ function buildCostosCharts(){
     else:
         fixes_fail.append("showTab costos -> buildCostosCharts")
 
-    # FIX 5: Canvas graficas costos — colocar DESPUES de la tabla, fuera del div overflow-x:auto
-    # Estructura correcta: tabla arriba (en overflow-x:auto), graficas abajo (fuera)
-    CANVAS5_BLOCK = (
-        '<!-- GRAFICAS COSTOS -->\n'
-        '<div style="display:flex;gap:20px;padding:16px 0;box-sizing:border-box">\n'
-        '  <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07);border:1px solid #E5E7EB">\n'
-        '    <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n'
-        '      <span style="color:#F59E0B;margin-right:6px">&#9679;</span>Tendencia Mensual vs Acumulado\n'
-        '    </div>\n'
-        '    <canvas id="costos-tendencia-chart" height="110"></canvas>\n'
-        '  </div>\n'
-        '  <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07);border:1px solid #E5E7EB">\n'
-        '    <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n'
-        '      <span style="color:#1F5BA6;margin-right:6px">&#9679;</span>Total de Costos por Mes (USD)\n'
-        '    </div>\n'
-        '    <canvas id="costos-barras-chart" height="110"></canvas>\n'
-        '  </div>\n'
-        '</div>\n'
-    )
+    # FIX 5: Canvas HTML para graficas costos — deben estar ANTES de la tabla (ctbody)
+    CANVAS5 = '\n      <!-- GRAFICAS COSTOS -->\n      <div style="display:flex;gap:20px;padding:0 32px 32px 32px;box-sizing:border-box">\n        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">\n          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n            <span style="color:#F59E0B;margin-right:6px">&#9679;</span>Tendencia Mensual vs Acumulado\n          </div>\n          <canvas id="costos-tendencia-chart" height="110"></canvas>\n        </div>\n        <div style="flex:1;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.07)">\n          <div style="font-size:.72rem;font-weight:800;color:#1F3A5F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">\n            <span style="color:#1F5BA6;margin-right:6px">&#9679;</span>Total de Costos por Mes (USD)\n          </div>\n          <canvas id="costos-barras-chart" height="110"></canvas>\n        </div>\n      </div>\n'
+    TABLE_ANCHOR5 = '<tbody id="ctbody">'
+    import re as _re5
+    canvas_present = 'costos-tendencia-chart' in html
+    # Placeholder comentario sin el div real
     _CANVAS_PLACEHOLDER = '<!-- GRAFICAS COSTOS -->'
-    _SECTION_ALT_CLOSE = '</div><!-- /section-alt -->'
-    _HISTORIAL_MARKER = '<!-- HISTORIAL PASIVOS SECTION -->'
-    _vc_start5 = html.find('id="view-costos"')
-    _vf_start5 = html.find('id="view-flujo"')
-    _costos_section5 = html[_vc_start5:_vf_start5] if _vc_start5 != -1 and _vf_start5 != -1 else html
-
-    # Verificar ya-OK PRIMERO: canvas en posicion correcta (despues section-alt, antes HISTORIAL)
-    _sa_pos  = html.find(_SECTION_ALT_CLOSE)
-    _hi_pos  = html.find(_HISTORIAL_MARKER)
-    _cv_pos  = html.find('id="costos-tendencia-chart"')
-    _already_ok = (_sa_pos != -1 and _hi_pos != -1 and _cv_pos != -1
-                   and _sa_pos < _cv_pos < _hi_pos)
-
-    if _already_ok:
-        # Canvas ya esta en posicion correcta — no tocar nada
-        fixes_ok.append('Canvas graficas costos (ya OK — despues de tabla)')
-    else:
-        # Canvas no esta en posicion correcta — limpiar y reinsertar
-        _cleaned = False
-        while _CANVAS_PLACEHOLDER in _costos_section5:
-            _ph_abs = _vc_start5 + _costos_section5.find(_CANVAS_PLACEHOLDER)
-            _ph_end = html.find(_HISTORIAL_MARKER, _ph_abs)
-            if _ph_end == -1:
-                _ph_end = _ph_abs + len(_CANVAS_PLACEHOLDER)
-            html = html[:_ph_abs] + html[_ph_end:]
-            _vc_start5 = html.find('id="view-costos"')
-            _vf_start5 = html.find('id="view-flujo"')
-            _costos_section5 = html[_vc_start5:_vf_start5] if _vc_start5 != -1 and _vf_start5 != -1 else html
-            _cleaned = True
-        _target = _SECTION_ALT_CLOSE + '\n' + _HISTORIAL_MARKER
-        _replacement = _SECTION_ALT_CLOSE + '\n' + CANVAS5_BLOCK + _HISTORIAL_MARKER
-        if _target in html:
-            html = html.replace(_target, _replacement, 1)
-            fixes_ok.append('Canvas graficas costos: colocadas despues de tabla' + (' (limpiadas duplicadas)' if _cleaned else ''))
+    _placeholder_only = _CANVAS_PLACEHOLDER in html and not canvas_present
+    canvas_pos5 = html.find('costos-tendencia-chart')
+    table_pos5 = html.find(TABLE_ANCHOR5)
+    if _placeholder_only:
+        # Reemplazar el placeholder por el canvas completo directamente
+        html = html.replace(_CANVAS_PLACEHOLDER, CANVAS5.strip(), 1)
+        fixes_ok.append("Canvas graficas costos: placeholder reemplazado por canvas real")
+    elif not canvas_present:
+        # Insertar antes de la tabla
+        if TABLE_ANCHOR5 in html:
+            # buscar el <table> más cercano antes de ctbody
+            t_open = html.rfind('<table>', 0, table_pos5)
+            if t_open > 0:
+                html = html[:t_open] + CANVAS5 + html[t_open:]
+                fixes_ok.append("Canvas graficas costos insertado antes de tabla")
+            else:
+                fixes_fail.append("Canvas graficas costos (no se encontro <table> antes de ctbody)")
         else:
-            fixes_fail.append('Canvas graficas costos (anchor section-alt no encontrado)')
-    # FIX MONTHS / FMONTHS: actualizar arrays de meses para incluir hasta el mes actual
-    # var MONTHS (pestana Horas) -> ultimo mes con horas > 0 en var DATA (ya actualizado)
-    # var FMONTHS (pestana Flujo) -> ultimo mes con datos de flujo (ultimo_mes_real)
-    import re as _re2
-    _MESES_FULL = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
+            fixes_fail.append("Canvas graficas costos (ctbody no encontrado)")
+    elif canvas_pos5 > table_pos5:
+        # Gráficas están DESPUÉS de la tabla — extraerlas y moverlas antes
+        flex_start = html.rfind('<div style="display:flex', 0, canvas_pos5)
+        if flex_start == -1:
+            # El placeholder comentario está después de tabla pero sin div real — reemplazarlo
+            ph_pos = html.rfind(_CANVAS_PLACEHOLDER, 0, canvas_pos5+50)
+            if ph_pos > 0:
+                html = html[:ph_pos] + html[ph_pos+len(_CANVAS_PLACEHOLDER):]
+                table_pos5b = html.find(TABLE_ANCHOR5)
+                t_open = html.rfind('<table>', 0, table_pos5b)
+                if t_open > 0:
+                    html = html[:t_open] + CANVAS5 + html[t_open:]
+                    fixes_ok.append("Canvas graficas costos movido antes de tabla (placeholder)")
+                else:
+                    fixes_fail.append("Canvas graficas costos (movido placeholder pero no se encontro tabla)")
+            else:
+                fixes_fail.append("Canvas graficas costos (canvas despues de tabla, no hay flex ni placeholder)")
+        else:
+            # El bloque termina después del canvas de barras
+            barras_pos = html.find('costos-barras-chart', canvas_pos5)
+            flex_end = html.find('</div>', barras_pos)
+            flex_end = html.find('</div>', flex_end+1)  # cierra el inner div
+            flex_end = html.find('</div>', flex_end+1)  # cierra el outer flex div
+            flex_end += len('</div>')
+            if flex_start > 0 and flex_end > flex_start:
+                canvas_block = html[flex_start:flex_end]
+                # Verificar ANTES de eliminar que la tabla destino existe
+                table_pos5b = html.find(TABLE_ANCHOR5)
+                t_open = html.rfind('<table>', 0, table_pos5b) if table_pos5b > 0 else -1
+                if t_open > 0:
+                    # Solo mover si hay destino valido
+                    html = html[:flex_start] + html[flex_end:]
+                    # Recalcular posicion de la tabla despues de eliminar el bloque
+                    table_pos5b2 = html.find(TABLE_ANCHOR5)
+                    t_open2 = html.rfind('<table>', 0, table_pos5b2) if table_pos5b2 > 0 else -1
+                    if t_open2 > 0:
+                        html = html[:t_open2] + '\n' + canvas_block + '\n\n' + html[t_open2:]
+                        fixes_ok.append("Canvas graficas costos movido antes de tabla")
+                    else:
+                        # Tabla desaparecio al mover — reinsertar en posicion original
+                        html = html[:flex_start] + canvas_block + html[flex_start:]
+                        fixes_fail.append("Canvas graficas costos (tabla desaparecio, canvas restaurado en posicion original)")
+                else:
+                    # No hay tabla destino — NO mover para no perder los canvas
+                    fixes_ok.append("Canvas graficas costos (ya OK — no se mueve, tabla destino no encontrada)")
+            else:
+                fixes_fail.append("Canvas graficas costos (no se pudo extraer bloque flex)")
+    else:
+        fixes_ok.append("Canvas graficas costos (ya OK — antes de tabla)")
 
-    # --- MONTHS: leer var DATA del HTML para detectar ultimo mes con horas > 0 ---
-    _mes_horas = 'SEP'  # fallback
-    _data_m = _re2.search(r'var DATA=(\{[^;]+\});', html)
-    if _data_m:
+    # FIX MONTHS / FMONTHS: actualizar arrays de meses segun datos reales de horas
+    # var MONTHS usada por pestaña Horas, var FMONTHS por Flujo
+    # MONTHS se basa en horas_data (puede tener OCT aunque Flujo no tenga OCT aún)
+    # FMONTHS se basa en ultimo_mes_real (flujo)
+    import re as _re_months
+    _MESES_FULL = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
+    # Ultimo mes con horas — buscar en var DATA del HTML ya actualizado
+    import re as _re_data_h
+    import json as _json_h
+    _data_match = _re_data_h.search(r'var DATA=({[^;]+});', html)
+    _ultimo_horas = 'SEP'
+    if _data_match:
         try:
-            import json as _json_h
-            _data_obj = _json_h.loads(_data_m.group(1))
+            _data_obj = _json_h.loads(_data_match.group(1))
             for _mh in reversed(_MESES_FULL):
                 if _data_obj.get(_mh, {}).get('hours', 0) > 0:
-                    _mes_horas = _mh
+                    _ultimo_horas = _mh
                     break
         except Exception:
             pass
-    _idx_horas = _MESES_FULL.index(_mes_horas)
+    _idx_horas = _MESES_FULL.index(_ultimo_horas)
     _months_horas_js = json.dumps(_MESES_FULL[:_idx_horas + 1])
-
-    # --- FMONTHS: ultimo mes con datos de flujo (puede ser diferente a horas) ---
-    _mes_flujo = ultimo_mes_real if (ultimo_mes_real and ultimo_mes_real in _MESES_FULL) else _mes_horas
-    _idx_flujo = _MESES_FULL.index(_mes_flujo)
+    # Último mes con datos de flujo
+    _ultimo_flujo = ultimo_mes_real if (ultimo_mes_real and ultimo_mes_real in _MESES_FULL) else 'SEP'
+    _idx_flujo = _MESES_FULL.index(_ultimo_flujo)
     _months_flujo_js = json.dumps(_MESES_FULL[:_idx_flujo + 1])
-
-    # Reemplazar var MONTHS (horas)
-    _old_months = _re2.search(r'var MONTHS\s*=\s*\[[^\]]*\]\s*;', html)
-    if _old_months:
-        _new_months = f'var MONTHS={_months_horas_js};'
-        if html[_old_months.start():_old_months.end()] != _new_months:
-            html = html[:_old_months.start()] + _new_months + html[_old_months.end():]
-            fixes_ok.append(f'var MONTHS actualizado hasta {_mes_horas}')
+    # Reemplazar var MONTHS (horas) — hasta último mes con horas
+    _m = _re_months.search(r'var MONTHS\s*=\s*\[[^\]]*\]\s*;', html)
+    if _m:
+        _new = f'var MONTHS={_months_horas_js};'
+        if html[_m.start():_m.end()] != _new:
+            html = html[:_m.start()] + _new + html[_m.end():]
+            fixes_ok.append(f'var MONTHS actualizado hasta {_ultimo_horas}')
         else:
-            fixes_ok.append(f'var MONTHS ya OK ({_mes_horas})')
+            fixes_ok.append(f'var MONTHS ya OK ({_ultimo_horas})')
     else:
         fixes_fail.append('var MONTHS no encontrado')
-    # Reemplazar var FMONTHS (flujo)
-    _old_fmonths = _re2.search(r'var FMONTHS\s*=\s*\[[^\]]*\]\s*;', html)
-    if _old_fmonths:
-        _new_fmonths = f'var FMONTHS={_months_flujo_js};'
-        if html[_old_fmonths.start():_old_fmonths.end()] != _new_fmonths:
-            html = html[:_old_fmonths.start()] + _new_fmonths + html[_old_fmonths.end():]
-            fixes_ok.append(f'var FMONTHS actualizado hasta {_mes_flujo}')
+    # Reemplazar var FMONTHS (flujo) — hasta último mes de flujo
+    _fm = _re_months.search(r"var FMONTHS\s*=\s*\[[^\]]*\]\s*;", html)
+    if _fm:
+        _new = f'var FMONTHS={_months_flujo_js};'
+        if html[_fm.start():_fm.end()] != _new:
+            html = html[:_fm.start()] + _new + html[_fm.end():]
+            fixes_ok.append(f'var FMONTHS actualizado hasta {_ultimo_flujo}')
         else:
-            fixes_ok.append(f'var FMONTHS ya OK ({_mes_flujo})')
+            fixes_ok.append(f'var FMONTHS ya OK ({_ultimo_flujo})')
     else:
         fixes_fail.append('var FMONTHS no encontrado')
 
-    # FIX BADGE PERIODO: actualizar "ENE – XXX 2026" en el nav con el ultimo mes con horas
+    # FIX BADGE PERIODO: "ENE – OCT 2026" según último mes con horas
     import re as _re_badge
-    _badge_pat = _re_badge.search(r'<span class="badge-period">ENE\s*[–-]\s*\w+\s*2026</span>', html)
+    _badge_pat = _re_badge.search(r'<span class="badge-period">ENE\s*[–\-]\s*\w+\s*2026</span>', html)
     if _badge_pat:
-        _new_badge = f'<span class="badge-period">ENE – {_mes_horas} 2026</span>'
+        _new_badge = f'<span class="badge-period">ENE – {_ultimo_horas} 2026</span>'
         if html[_badge_pat.start():_badge_pat.end()] != _new_badge:
             html = html[:_badge_pat.start()] + _new_badge + html[_badge_pat.end():]
-            fixes_ok.append(f'Badge periodo actualizado hasta {_mes_horas}')
+            fixes_ok.append(f'Badge periodo actualizado hasta {_ultimo_horas}')
         else:
-            fixes_ok.append(f'Badge periodo ya OK ({_mes_horas})')
+            fixes_ok.append(f'Badge periodo ya OK ({_ultimo_horas})')
     else:
         fixes_fail.append('Badge periodo no encontrado')
 
-    # FIX CFILTER BUTTONS: regenerar botones de "FILTRAR POR MES" con solo los meses reales
-    # El bloque hardcoded puede tener NOV/DIC (meses futuros) que desplazan OCT fuera de pantalla
+    # FIX CFILTER BUTTONS: regenerar botones FILTRAR POR MES con meses hasta _ultimo_horas
     _btn_style = 'padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99'
     _btn_todos = '<button onclick="cFilterMes(\'TODOS\')" data-m="TODOS" id="cbtn-todos" class="cfilter-btn active" style="padding:4px 12px;border-radius:20px;border:none;background:var(--blue);color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Todos</button>'
     _btns_meses = '\n      '.join(
         f'<button onclick="cFilterMes(\'{m}\')" data-m="{m}" class="cfilter-btn" style="{_btn_style}">{m}</button>'
-        for m in _MESES_FULL[:_idx_horas + 1]  # solo ENE hasta ultimo mes con horas
+        for m in _MESES_FULL[:_idx_horas + 1]
     )
     _new_btn_block = (
         '<span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7A99;margin-right:4px">FILTRAR POR MES:</span>\n'
@@ -975,7 +1152,6 @@ function buildCostosCharts(){
     )
     _cfilter_ini = html.find('<!-- FILTRAR POR MES -->')
     if _cfilter_ini >= 0:
-        # Buscar el div interno que contiene los botones (primer <div> despues del marcador)
         _inner_div_start = html.find('<div style="display:flex;gap:6px', _cfilter_ini)
         if _inner_div_start >= 0:
             _inner_div_end = html.find('</div>', _inner_div_start) + len('</div>')
@@ -983,13 +1159,47 @@ function buildCostosCharts(){
             _new_inner = f'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">\n      {_new_btn_block}\n    </div>'
             if _old_inner != _new_inner:
                 html = html[:_inner_div_start] + _new_inner + html[_inner_div_end:]
-                fixes_ok.append(f'Botones cFilterMes regenerados hasta {_mes_horas}')
+                fixes_ok.append(f'Botones cFilterMes regenerados hasta {_ultimo_horas}')
             else:
-                fixes_ok.append(f'Botones cFilterMes ya OK ({_mes_horas})')
+                fixes_ok.append(f'Botones cFilterMes ya OK ({_ultimo_horas})')
         else:
             fixes_fail.append('cFilterMes: inner div no encontrado')
     else:
-        fixes_fail.append('cFilterMes: marcador FILTRAR POR MES no encontrado')
+        fixes_fail.append('cFilterMes: marcador <!-- FILTRAR POR MES --> no encontrado')
+
+    # FIX FILTER-BTN (Horas por Mes): regenerar botones filter() hasta _ultimo_horas
+    _dq = '"'
+    _sq = "'"
+    _horas_btn_todos = (
+        '<button class=' + _dq + 'filter-btn active' + _dq +
+        ' data-m=' + _dq + 'TODOS' + _dq +
+        ' onclick=' + _dq + 'filter(' + _sq + 'TODOS' + _sq + ')' + _dq +
+        '>Todos</button>'
+    )
+    def _mk_fhbtn(m):
+        return (
+            '<button class=' + _dq + 'filter-btn' + _dq +
+            ' data-m=' + _dq + m + _dq +
+            ' onclick=' + _dq + 'filter(' + _sq + m + _sq + ')' + _dq +
+            '>' + m + '</button>'
+        )
+    _horas_btns = '\n    '.join(_mk_fhbtn(m) for m in _MESES_FULL[:_idx_horas + 1])
+    _horas_label = '<span class=' + _dq + 'filter-label' + _dq + '>Filtrar por mes:</span>'
+    _horas_label_pos = html.find(_horas_label)
+    if _horas_label_pos >= 0:
+        _horas_div_end = html.find('</div>', _horas_label_pos)
+        if _horas_div_end >= 0:
+            _old_horas = html[_horas_label_pos:_horas_div_end]
+            _new_horas = _horas_label + '\n    ' + _horas_btn_todos + '\n    ' + _horas_btns
+            if _old_horas != _new_horas:
+                html = html[:_horas_label_pos] + _new_horas + html[_horas_div_end:]
+                fixes_ok.append('Botones filter() Horas regenerados hasta ' + _ultimo_horas)
+            else:
+                fixes_ok.append('Botones filter() Horas ya OK (' + _ultimo_horas + ')')
+        else:
+            fixes_fail.append('filter() Horas: div end no encontrado')
+    else:
+        fixes_fail.append('filter() Horas: span filter-label no encontrado')
 
     # FIX FLUJO: botones de mes, textos ENE-XXX y subtítulo Saldo Final
     # Determinar último mes con datos en FDATA
@@ -1090,16 +1300,12 @@ function buildCostosCharts(){
 
     # Fix rsRender allMonths: incluir SEP en el Resumen
     old_rs = "  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO'];"
-    new_rs = "  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT'];"
-    old_rs2 = "  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP'];"
-    if new_rs in html:
-        fixes_ok.append('rsRender allMonths +OCT (ya OK)')
-    elif old_rs2 in html:
-        html = html.replace(old_rs2, new_rs)
-        fixes_ok.append('rsRender allMonths +OCT')
-    elif old_rs in html:
+    new_rs = "  const allMonths = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP'];"
+    if old_rs in html:
         html = html.replace(old_rs, new_rs)
-        fixes_ok.append('rsRender allMonths +OCT (desde AGO)')
+        fixes_ok.append('rsRender allMonths +SEP')
+    elif new_rs in html:
+        fixes_ok.append('rsRender allMonths +SEP (ya OK)')
 
     # Fix polyfill roundRect para Chrome < 99
     polyfill_marker = 'CanvasRenderingContext2D.prototype.roundRect'
@@ -1189,7 +1395,6 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append("fila costos: Costo Total USD (patron no encontrado)")
 
-    print("  FIXES OK:", ", ".join(fixes_ok))
     # FIX EGRCATS: orden correcto (costos primero, luego gastos) y sin auto-sort por monto
     # FIX EGRCATS: orden correcto via regex
     EGRCATS_DESEADO = """const egrCats = [
@@ -1308,130 +1513,421 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
 
 
 
-    # FIX DETALLE-RECURSO-HTML: asegurar que la sección "Detalle por Recurso" exista antes de
-    # <!-- END HISTORIAL PASIVOS --> con la estructura HTML correcta (tabla dinámica con tbody id=recurso-detail-body)
-    _END_PASIVO = '<!-- END HISTORIAL PASIVOS -->'
-    _REC_MARKER = '<!-- DETALLE POR RECURSO -->'
-    _REC_TBODY   = 'id="recurso-detail-body"'
-    _TH_RECURSO = '''<!-- DETALLE POR RECURSO -->
-  <div style="margin-top:16px">
-    <div style="font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-bottom:6px;border-left:3px solid var(--blue);padding-left:8px">Detalle Histórico por Recurso</div>
-    <div style="display:flex;gap:8px;margin-bottom:8px" id="rrbtn-container">
+    # FIX PASIVOS-CONST-2: cambiar segunda declaracion 'const PASIVOS' a 'var PASIVOS'
+    # La regeneracion inserta 'const PASIVOS' dos veces (una por cada bloque duplicado).
+    # En el mismo scope JS no se puede declarar const dos veces → SyntaxError L4xxx.
+    # La solucion es cambiar la segunda instancia a 'var' que si permite redeclaracion.
+    _pc_idx1 = html.find('const PASIVOS')
+    if _pc_idx1 >= 0:
+        _pc_idx2 = html.find('const PASIVOS', _pc_idx1 + 1)
+        if _pc_idx2 >= 0:
+            html = html[:_pc_idx2] + 'var PASIVOS' + html[_pc_idx2 + len('const PASIVOS'):]
+            fixes_ok.append('PASIVOS-CONST-2 corregido (const→var)')
+        else:
+            fixes_ok.append('PASIVOS-CONST-2 (solo una instancia - OK)')
+    else:
+        fixes_ok.append('PASIVOS-CONST-2 (var PASIVOS — ya OK, no hay const)')
+
+    # FIX HISTORIAL-PASIVOS-2: eliminar COMPLETAMENTE la segunda seccion de HISTORIAL PASIVOS
+    # La segunda instancia (dentro del bloque del return ' sin cerrar en Chrome) tiene ~375 lineas de HTML
+    # que son la causa raiz del SyntaxError L3295. El threshold de Chrome es ~702 lineas.
+    # Sin esta seccion el bloque queda en ~478 lineas (bien por debajo del umbral).
+    # La primera instancia (fuera del script, antes de L721) conserva sus datos y es la que se muestra.
+    # IMPORTANTE: Se elimina desde <!-- HISTORIAL PASIVOS SECTION --> hasta <!-- END HISTORIAL PASIVOS -->
+    # incluyendo el <script> de showRecursoMes que esta dentro de esa seccion.
+    _HP_MARKER = '<!-- HISTORIAL PASIVOS SECTION -->'
+    _HP_END = '<!-- END HISTORIAL PASIVOS -->'
+    _hp1 = html.find(_HP_MARKER)
+    _hp2 = -1
+    if _hp1 >= 0:
+        _hp2 = html.find(_HP_MARKER, _hp1 + 1)
+    if _hp2 >= 0:
+        # Hay dos instancias - eliminar la segunda completa (incluyendo END marker)
+        _hp_end_idx = html.find(_HP_END, _hp2)
+        if _hp_end_idx >= 0:
+            _hp_end_full = _hp_end_idx + len(_HP_END)
+            html = html[:_hp2] + html[_hp_end_full:]
+            fixes_ok.append('HISTORIAL-PASIVOS-2 eliminado')
+        else:
+            fixes_fail.append('HISTORIAL-PASIVOS-2 (END marker no encontrado)')
+    elif _hp1 >= 0:
+        fixes_ok.append('HISTORIAL-PASIVOS-2 (segunda instancia ya no existe - OK)')
+    else:
+        fixes_fail.append('HISTORIAL-PASIVOS-2 (marker HISTORIAL PASIVOS SECTION no encontrado)')
+
+    # FIX VIEW-FLUJO-NESTING: la seccion "HISTORIAL DE PASIVOS" (div.section abierto en L620)
+    # nunca se cierra antes del cierre de view-costos. Esto hace que view-flujo quede anidado
+    # DENTRO de view-costos, y al poner view-costos en display:none el flujo desaparece.
+    # Solucion: agregar </div><!-- /section historial pasivos --> antes de </div><!-- /view-costos -->
+    _VF_OLD = '<!-- END HISTORIAL PASIVOS -->\n</div><!-- /view-costos -->'
+    _VF_NEW = '<!-- END HISTORIAL PASIVOS -->\n</div><!-- /section historial pasivos -->\n</div><!-- /view-costos -->'
+    if _VF_OLD in html:
+        html = html.replace(_VF_OLD, _VF_NEW)
+        fixes_ok.append('VIEW-FLUJO-NESTING corregido (section div cerrado antes de view-costos)')
+    elif _VF_NEW in html:
+        fixes_ok.append('VIEW-FLUJO-NESTING (ya OK)')
+    else:
+        fixes_fail.append('VIEW-FLUJO-NESTING (patron END HISTORIAL PASIVOS + /view-costos no encontrado)')
+
+    # FIX COSTOS-TABLE: si el bloque de filtro de costos está truncado (sin ctbody HTML),
+    # restaurar la tabla completa. El ctbody puede existir en JS pero no como elemento HTML.
+    import re as _re_ct
+    _CT_HTML_CHECK = '<tbody[^>]+id=.ctbody.'
+    _ct_html_ok = bool(_re_ct.search(_CT_HTML_CHECK, html))
+    if not _ct_html_ok:
+        # Anchor A: comentario AGRUPAR POR vacío (estado actual tras regeneración)
+        _CT_ANCHOR_A = '  <!-- AGRUPAR POR -->\n  <!-- /section costos desglose -->'
+        # Anchor B: filter-wrap truncado (estado anterior)
+        _CT_ANCHOR_B = '  <div class="filter-wrap" style="margin-bottom:20px;justify-content:space-between">\n  <!-- /section-alt -->'
+        _CT_TABLE_BLOCK = """  <!-- AGRUPAR POR -->
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+    <span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7A99">AGRUPAR POR:</span>
+    <button onclick="setCostosGroup('cliente',this)" id="cgrp-cliente" style="padding:4px 14px;border-radius:20px;border:none;background:#0D1F3C;color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Cliente</button>
+    <button onclick="setCostosGroup('po',this)" id="cgrp-po" style="padding:4px 14px;border-radius:20px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.72rem;cursor:pointer">PO</button>
+    <button onclick="setCostosGroup('servicio',this)" id="cgrp-servicio" style="padding:4px 14px;border-radius:20px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.72rem;cursor:pointer">Servicio</button>
+  </div>
+  <div style="margin-bottom:14px">
+    <input id="costos-search" type="text" placeholder="Buscar cliente, PO o servicio..." oninput="buildCostosTable()" style="width:100%;padding:8px 14px;border:1px solid #E5E7EB;border-radius:8px;font-size:.78rem;outline:none;box-sizing:border-box">
+  </div>
+  <div style="overflow-x:auto;border-radius:10px;border:1px solid #E5E7EB">
+    <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+      <thead>
+        <tr style="background:#0D1F3C!important">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;min-width:120px;border-bottom:none">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Total USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo MXN</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none"></th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>
+    </table>
+  </div>
+  <!-- /section costos desglose -->"""
+        if _CT_ANCHOR_A in html:
+            html = html.replace(_CT_ANCHOR_A, _CT_TABLE_BLOCK, 1)
+            fixes_ok.append('COSTOS-TABLE restaurada con ctbody (anchor A)')
+        elif _CT_ANCHOR_B in html:
+            html = html.replace(_CT_ANCHOR_B, _CT_TABLE_BLOCK + '\n<!-- /section-alt -->', 1)
+            fixes_ok.append('COSTOS-TABLE restaurada con ctbody (anchor B)')
+        else:
+            fixes_fail.append('COSTOS-TABLE (patron no encontrado — revisar anchor)')
+    else:
+        fixes_ok.append('COSTOS-TABLE (ctbody ya OK)')
+
+    # FIX CANVAS-COSTOS: si faltan los canvas de comportamiento mensual de costos, insertarlos
+    _CANVAS_CHECK = 'costos-tendencia-chart'
+    if _CANVAS_CHECK not in html:
+        _CANVAS_ANCHOR = '  <!-- AGRUPAR POR -->'
+        _CANVAS_INSERT = """  <!-- GRAFICAS COSTOS -->
+  <div class="chart-grid-2" style="margin-bottom:20px">
+    <div class="chart-card">
+      <div class="chart-title"><span class="dot" style="background:#1F5BA6"></span>Tendencia Mensual vs Acumulado</div>
+      <canvas id="costos-tendencia-chart" style="max-height:220px"></canvas>
     </div>
-    <div style="overflow-x:auto;border-radius:8px;border:1px solid #E5E7EB">
-      <table style="width:100%;border-collapse:collapse;font-size:.78rem">
-        <thead>
-          <tr>
-            <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--navy)">Recurso</th>
-            <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--navy)">Moneda</th>
-            <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--navy)">Horas</th>
-            <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--navy)">Total USD</th>
-            <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--navy)">Total MXN c/IVA</th>
-            <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--navy)">Neto MXN</th>
-            <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--navy)">Neto USD</th>
-          </tr>
-        </thead>
-        <tbody id="recurso-detail-body"></tbody>
-      </table>
+    <div class="chart-card">
+      <div class="chart-title"><span class="dot" style="background:#F59E0B"></span>Costo Total USD por Mes</div>
+      <canvas id="costos-barras-chart" style="max-height:220px"></canvas>
     </div>
   </div>
-'''
-    _end_idx = html.find(_END_PASIVO)
-    if _end_idx >= 0:
-        _rec_idx = html.rfind(_REC_MARKER, 0, _end_idx)
-        if _rec_idx < 0 or _REC_TBODY not in html[_rec_idx:_end_idx]:
-            # No existe o tiene estructura vieja — insertar justo antes de END_PASIVO
-            # Primero eliminar cualquier bloque viejo <!-- DETALLE POR RECURSO --> antes del END
-            if _rec_idx >= 0:
-                html = html[:_rec_idx] + html[_end_idx:]
-                _end_idx = html.find(_END_PASIVO)
-            html = html[:_end_idx] + '\n' + _TH_RECURSO + '\n' + html[_end_idx:]
-            fixes_ok.append('DETALLE-RECURSO-HTML (sección creada/actualizada)')
+
+  <!-- AGRUPAR POR -->"""
+        idx_ca = html.find(_CANVAS_ANCHOR)
+        if idx_ca >= 0:
+            html = html.replace(_CANVAS_ANCHOR, _CANVAS_INSERT, 1)
+            fixes_ok.append('CANVAS-COSTOS insertados')
         else:
-            fixes_ok.append('DETALLE-RECURSO-HTML (ya OK con tbody dinámico)')
+            fixes_fail.append('CANVAS-COSTOS (ancla AGRUPAR POR no encontrada)')
     else:
-        fixes_fail.append('DETALLE-RECURSO-HTML (END HISTORIAL PASIVOS no encontrado)')
+        fixes_ok.append('CANVAS-COSTOS (ya OK)')
 
-    # FIX DETALLE-RECURSO-JS: asegurar que var PASIVOS_REC y showRecursoMes() existan
-    _REC_VAR_MARKER = 'var PASIVOS_REC='
-    _REC_FN_MARKER  = 'function showRecursoMes('
-    _REC_JS_BLOCK = '''var PASIVOS_REC={};
-function showRecursoMes(mes, btn){
-  document.querySelectorAll('[id^="rrbtn-"]').forEach(function(b){
-    b.style.background='#F1F5F9'; b.style.color='#64748B'; b.style.borderColor='#CBD5E1';
-  });
-  if(btn){ btn.style.background='var(--navy)'; btn.style.color='#fff'; btn.style.borderColor='var(--navy)'; }
-  var data = PASIVOS_REC[mes] || [];
-  var body = document.getElementById('recurso-detail-body');
-  if(!body) return;
-  var fN = function(n){ return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:1}); };
-  var fU = function(n){ return '$'+Math.round(n).toLocaleString('en-US'); };
-  var rows = '';
-  data.forEach(function(row, i){
-    var bg = i%2===0 ? '#fff' : '#F9FAFB';
-    rows += '<tr style="background:'+bg+';border-bottom:1px solid #F3F4F6">'
-      +'<td style="padding:9px 14px;font-weight:600;color:var(--navy);font-size:.75rem">'+row.r+'</td>'
-      +'<td style="padding:9px 14px;text-align:right;font-size:.7rem;color:#64748B">'+row.mon+'</td>'
-      +'<td style="padding:9px 14px;text-align:right;color:#1F5BA6;font-weight:600">'+fN(row.h)+'</td>'
-      +'<td style="padding:9px 14px;text-align:right;color:#059669;font-weight:600">'+(row.usd>0?fU(row.usd):'—')+'</td>'
-      +'<td style="padding:9px 14px;text-align:right">'+(row.mxn>0?fU(row.mxn):'—')+'</td>'
-      +'<td style="padding:9px 14px;text-align:right">'+(row.neto_mxn>0?fU(row.neto_mxn):'—')+'</td>'
-      +'<td style="padding:9px 14px;text-align:right;color:'+(row.neto_usd>0?'#059669':'#9CA3AF')+'">'+(row.neto_usd>0?fU(row.neto_usd):'—')+'</td>'
-      +'</tr>';
-  });
-  var tot = data.reduce(function(a,r){ return {h:a.h+r.h,usd:a.usd+r.usd,mxn:a.mxn+r.mxn,neto_mxn:a.neto_mxn+r.neto_mxn,neto_usd:a.neto_usd+r.neto_usd}; },{h:0,usd:0,mxn:0,neto_mxn:0,neto_usd:0});
-  var TS = 'background:var(--navy);color:#fff;font-weight:700;padding:9px 14px';
-  rows += '<tr>'
-    +'<td style="'+TS+';font-size:.65rem;text-transform:uppercase;letter-spacing:.05em" colspan="2">TOTAL</td>'
-    +'<td style="'+TS+';text-align:right">'+fN(tot.h)+'</td>'
-    +'<td style="'+TS+';text-align:right">'+(tot.usd>0?fU(tot.usd):'—')+'</td>'
-    +'<td style="'+TS+';text-align:right">'+(tot.mxn>0?fU(tot.mxn):'—')+'</td>'
-    +'<td style="'+TS+';text-align:right">'+(tot.neto_mxn>0?fU(tot.neto_mxn):'—')+'</td>'
-    +'<td style="'+TS+';text-align:right">'+(tot.neto_usd>0?fU(tot.neto_usd):'—')+'</td>'
-    +'</tr>';
-  body.innerHTML = rows;
-}
-'''
-    if _REC_VAR_MARKER not in html:
-        # Insertar después de var PASIVOS (o showPasivoMes)
-        _insert_after = 'var PASIVOS='
-        if _insert_after not in html:
-            _insert_after = 'var PASIVOS ='
-        _pos = html.find(_insert_after)
-        if _pos >= 0:
-            _nl = html.find('\n', _pos)
-            if _nl >= 0:
-                html = html[:_nl+1] + _REC_JS_BLOCK + html[_nl+1:]
-                fixes_ok.append('DETALLE-RECURSO-JS (var+función insertados)')
-            else:
-                fixes_fail.append('DETALLE-RECURSO-JS (no se encontró newline después de PASIVOS)')
+    # FIX SALDO-DIA: siempre leer el último saldo real de bancos del Excel
+    # y escribirlo en var SALDO_DIA (con fecha del último dato y saldos por cuenta)
+    import json as _json
+    _saldo_data = None
+    try:
+        _saldo_data = extraer_saldo_bancos()
+    except Exception as _e:
+        print(f"  WARN extraer_saldo_bancos: {_e}")
+
+    if _saldo_data is None:
+        _saldo_data = {'fecha': None, 'total': 0, 'banks': {}}
+
+    _SD_JS = 'var SALDO_DIA = ' + _json.dumps(_saldo_data, ensure_ascii=False) + ';'
+    _SD_ANCHOR = 'function fRenderSaldoDia(){'
+
+    if 'var SALDO_DIA' in html:
+        # Reemplazar el existente (puede ser viejo o el fallback del turno anterior)
+        import re as _re
+        html = _re.sub(r'var SALDO_DIA\s*=\s*\{[^;]+\};', _SD_JS, html, count=1)
+        fixes_ok.append('SALDO-DIA actualizado con datos reales')
+    else:
+        idx_sd = html.find(_SD_ANCHOR)
+        if idx_sd >= 0:
+            html = html[:idx_sd] + _SD_JS + '\n' + html[idx_sd:]
+            fixes_ok.append('SALDO-DIA insertado con datos reales')
         else:
-            fixes_fail.append('DETALLE-RECURSO-JS (no se encontró var PASIVOS)')
+            fixes_fail.append('SALDO-DIA (function fRenderSaldoDia no encontrado)')
+
+    # FIX: fRenderSaldoDia mostrar "Actualizado: <hoy> · Datos al: <fecha_excel>"
+    _FECHA_OLD = "    elFecha.textContent = 'Saldo al '+hoyStr + (s.fecha ? ' · último dato: '+s.fecha : '');"
+    _FECHA_NEW = "    elFecha.textContent = 'Actualizado: '+(s.fecha_generacion||hoyStr) + (s.fecha ? ' · Datos al: '+s.fecha : '');"
+    if _FECHA_OLD in html:
+        html = html.replace(_FECHA_OLD, _FECHA_NEW, 1)
+        fixes_ok.append('FECHA-RENDER actualizado')
+    elif _FECHA_NEW in html:
+        fixes_ok.append('FECHA-RENDER (ya OK)')
     else:
-        fixes_ok.append('DETALLE-RECURSO-JS (ya existe var PASIVOS_REC)')
+        fixes_fail.append('FECHA-RENDER (patron no encontrado)')
 
-    # Asegurar que showTab('costos') inicialice showRecursoMes con el primer botón rrbtn
-    import re as _re_tab
-    _show_rec_init = _re_tab.search(r"showRecursoMes\(", html)
-    _show_tab_costos = html.find("if(t==='costos'){")
-    if not _show_rec_init and _show_tab_costos >= 0:
-        _end_line = html.find('\n', _show_tab_costos)
-        # Agregar init de showRecursoMes justo después
-        if _end_line >= 0:
-            _line = html[_show_tab_costos:_end_line]
-            _new_line = _line.rstrip()
-            if 'showRecursoMes' not in _line:
-                html = html[:_end_line] + "\n  setTimeout(function(){ var _rb=document.querySelector('[id^=\"rrbtn-\"]'); if(_rb&&typeof showRecursoMes==='function') showRecursoMes(_rb.getAttribute('onclick').match(/\\'([^']+)\\'/)[1],_rb); },50);" + html[_end_line:]
-                fixes_ok.append('DETALLE-RECURSO-JS (init en showTab costos)')
+    # FIX: thead de costos — 7 columnas con background #0D1F3C!important en cada <th>
+    # (el CSS global "th{background:var(--gray-100)}" sobreescribia el color del <tr>)
+    _CTHEAD_OLD = """      <thead>
+        <tr style="background:#0D1F3C">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Total</th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>"""
+    _CTHEAD_OLD2 = """      <thead>
+        <tr style="background:#0D1F3C">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Total USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo MXN</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff"></th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>"""
+    _CTHEAD_NEW = """      <thead>
+        <tr style="background:#0D1F3C!important">
+          <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;min-width:120px;border-bottom:none">Mes</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Hrs USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Total USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo MXN</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none"></th>
+        </tr>
+      </thead>
+      <tbody id="ctbody"></tbody>"""
+    if _CTHEAD_OLD in html:
+        html = html.replace(_CTHEAD_OLD, _CTHEAD_NEW, 1)
+        fixes_ok.append('COSTOS-THEAD azul navy con !important')
+    elif _CTHEAD_OLD2 in html:
+        html = html.replace(_CTHEAD_OLD2, _CTHEAD_NEW, 1)
+        fixes_ok.append('COSTOS-THEAD azul navy con !important')
+    elif 'background:#0D1F3C!important' in html and 'id="ctbody"' in html:
+        fixes_ok.append('COSTOS-THEAD (ya OK con !important)')
+    else:
+        fixes_fail.append('COSTOS-THEAD (patron no encontrado)')
 
+    # FIX: bankDefs — 5 bancos desde CONCENTRADO, con isUSD para mostrar sub-monto en dólares
+    # banks tiene objetos {mxn, usd?} en vez de números simples
+    _BANKDEFS_MARKER_OK = "key:'BBVA USD',   label:'BBVA USD',   isUSD:true"
+    _BANKDEFS_MARKER_OK2 = "key:'BBVA USD',   label:'BBVA USD',   isUSD:true"
+    _BANKDEFS_OLD_4_ISMXN = """  var bankDefs = [
+    {key:'BBVA Pesos', label:'BBVA Pesos', isMXN:true},
+    {key:'BBVA USD',   label:'BBVA USD',   isMXN:false},
+    {key:'BMX USD',    label:'BMX USD',    isMXN:false},
+    {key:'BMX MXN',    label:'BMX MXN',    isMXN:true}
+  ];"""
+    _BANKDEFS_OLD_5_VSBVA = """  var bankDefs = [
+    {key:'Vs BBVA pesos', label:'BBVA Pesos', isMXN:true},
+    {key:'Vs BBVA USD',   label:'BBVA USD',   isMXN:false},
+    {key:'BMX USD',       label:'BMX USD',    isMXN:false},
+    {key:'BMXQRO MN',     label:'BMX QRO MN', isMXN:true},
+    {key:'BANAMEX MN',    label:'Banamex MN', isMXN:true}
+  ];"""
+    _BANKDEFS_NEW_5 = """  var bankDefs = [
+    {key:'BBVA Pesos', label:'BBVA Pesos', isUSD:false},
+    {key:'BBVA USD',   label:'BBVA USD',   isUSD:true},
+    {key:'BMX USD',    label:'BMX USD',    isUSD:true},
+    {key:'BMX QRO MN', label:'BMX QRO MN', isUSD:false},
+    {key:'Banamex MN', label:'Banamex MN', isUSD:false}
+  ];"""
+    if _BANKDEFS_MARKER_OK in html:
+        fixes_ok.append('BANKDEFS (ya OK - 5 bancos con isUSD)')
+    elif _BANKDEFS_OLD_4_ISMXN in html:
+        html = html.replace(_BANKDEFS_OLD_4_ISMXN, _BANKDEFS_NEW_5, 1)
+        fixes_ok.append('BANKDEFS actualizado (4->5 bancos con isUSD)')
+    elif _BANKDEFS_OLD_5_VSBVA in html:
+        html = html.replace(_BANKDEFS_OLD_5_VSBVA, _BANKDEFS_NEW_5, 1)
+        fixes_ok.append('BANKDEFS actualizado (5 bancos Vs->/display con isUSD)')
+    else:
+        fixes_fail.append('BANKDEFS (patron no encontrado)')
+
+    # FIX: Renderizado de tarjetas bancarias — MXN principal + USD abajo para cuentas USD
+    _CARDS_OLD = """  var cards = bankDefs.map(function(b){
+    var v = s.banks[b.key] || 0;
+    var vFmt;
+    if(v>=1e6) vFmt='$'+(v/1e6).toFixed(1)+'M';
+    else if(v>=1e3) vFmt='$'+(v/1e3).toFixed(0)+'K';
+    else vFmt='$'+Math.round(v);
+    var sub = b.isMXN ? 'MXN' : 'MXN equiv.';
+    return '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:7px 9px">'
+      +'<div style="font-size:.52rem;font-weight:700;color:#93C5FD;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+b.label+'</div>'
+      +'<div style="font-size:.72rem;font-weight:800;color:#fff;white-space:nowrap">'+vFmt+'</div>'
+      +'<div style="font-size:.5rem;color:#64748B;margin-top:1px">'+sub+'</div>'
+      +'</div>';
+  });
+  elBanks.innerHTML = cards.join('');"""
+    _CARDS_NEW = """  var fmtMXN=function(v){if(v>=1e6)return '$'+(v/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';if(v>=1e3)return '$'+(v/1e3).toFixed(0)+'K';return '$'+Math.round(v);};
+  var fmtUSD=function(v){if(v>=1e6)return 'USD '+(v/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';if(v>=1e3)return 'USD '+(v/1e3).toFixed(0)+'K';return 'USD '+Math.round(v);};
+  var cards = bankDefs.map(function(b){
+    var bv=s.banks[b.key]||{};
+    var mxn=(typeof bv==='object'&&bv!==null&&'mxn' in bv)?bv.mxn:(typeof bv==='number'?bv:0);
+    var usd=(typeof bv==='object'&&bv!==null&&'usd' in bv)?bv.usd:null;
+    var usdLine=(b.isUSD&&usd!==null)?'<div style="font-size:.5rem;color:#93C5FD;margin-top:2px;font-weight:600">'+fmtUSD(usd)+'</div>':'<div style="font-size:.5rem;color:#64748B;margin-top:1px">MXN</div>';
+    return '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:7px 9px">'
+      +'<div style="font-size:.52rem;font-weight:700;color:#93C5FD;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+b.label+'</div>'
+      +'<div style="font-size:.72rem;font-weight:800;color:#fff;white-space:nowrap">'+fmtMXN(mxn)+' MXN</div>'
+      +usdLine
+      +'</div>';
+  });
+  elBanks.innerHTML = cards.join('');"""
+    if 'fmtMXN=function' in html and 'fmtUSD=function' in html:
+        fixes_ok.append('CARDS-RENDER (ya OK - MXN+USD)')
+    elif _CARDS_OLD in html:
+        html = html.replace(_CARDS_OLD, _CARDS_NEW, 1)
+        fixes_ok.append('CARDS-RENDER actualizado (MXN principal + USD abajo)')
+    else:
+        fixes_fail.append('CARDS-RENDER (patron no encontrado)')
+
+    # FIX: Grid de bancos — 5 columnas
+    _GRID_OLD_4 = 'id="flujo-saldo-banks" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"'
+    _GRID_5 = 'id="flujo-saldo-banks" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px"'
+    if _GRID_5 in html:
+        fixes_ok.append('BANKS-GRID (ya OK - 5 cols)')
+    elif _GRID_OLD_4 in html:
+        html = html.replace(_GRID_OLD_4, _GRID_5, 1)
+        fixes_ok.append('BANKS-GRID actualizado (4->5 cols)')
+
+    # FIX COSTOS-SECTION-DIV: falta </div> de cierre del <div class="section"> de TABLA MENSUAL.
+    # Sin este cierre, view-flujo queda anidado dentro de view-costos y aparece en blanco.
+    # COSTOS-SECTION-DIV: verificar que view-flujo NO esta anidado dentro de view-costos
+    # El indicador es que id="view-flujo" aparece DESPUES del cierre de id="view-costos"
+    _vc_end = html.find('</div>', html.find('id="view-costos"'))
+    _vf_pos = html.find('id="view-flujo"')
+    if _vf_pos > 0 and _vc_end > 0 and _vf_pos > _vc_end:
+        fixes_ok.append('COSTOS-SECTION-DIV (view-flujo correctamente despues de view-costos)')
+    else:
+        # Intentar fix con patrones conocidos
+        _SEC_CLOSE_CHECK = '</div>\n<!-- /section-alt -->\n<!-- HISTORIAL PASIVOS SECTION -->'
+        _SEC_CLOSE_MISSING = '<!-- /section costos desglose -->\n<!-- /section-alt -->\n<!-- HISTORIAL PASIVOS SECTION -->'
+        _SEC_CLOSE_FIXED   = '<!-- /section costos desglose -->\n</div>\n<!-- /section-alt -->\n<!-- HISTORIAL PASIVOS SECTION -->'
+        if _SEC_CLOSE_CHECK in html:
+            fixes_ok.append('COSTOS-SECTION-DIV (cierre ya OK - patron clasico)')
+        elif _SEC_CLOSE_MISSING in html:
+            html = html.replace(_SEC_CLOSE_MISSING, _SEC_CLOSE_FIXED, 1)
+            fixes_ok.append('COSTOS-SECTION-DIV: </div> restaurado')
+        else:
+            fixes_ok.append('COSTOS-SECTION-DIV (estructura no reconocida — verificar visualmente)')
+
+    # -------------------------------------------------------------------------
+    # FIX CRES VIATICOS: usar e.perdiem en lugar de diferencia usd_cost - usdHrsCost
+    # Estos fixes aseguran que la columna VIÁTICOS muestre el costo real en la expansion
+    # -------------------------------------------------------------------------
+
+    # 1) Calculo de viat en expansion por worker (toggleCostosDetail) — ambos patrones (viejo y ya-ok)
+    OLD_VIAT_CALC = "    const usdHrsCost = e.rate>0 ? e.rate * e.usd_hrs : 0;\n    const viat = e.usd_cost - usdHrsCost;"
+    NEW_VIAT_CALC = "    const usdHrsCost = e.rate>0 ? e.rate * e.usd_hrs : 0;\n    const viat = (e.perdiem != null && e.perdiem > 0) ? e.perdiem : Math.max(0, e.usd_cost - usdHrsCost);"
+    if OLD_VIAT_CALC in html:
+        html = html.replace(OLD_VIAT_CALC, NEW_VIAT_CALC)
+        fixes_ok.append('CRES viat: usar e.perdiem en expansion')
+    elif NEW_VIAT_CALC in html:
+        fixes_ok.append('CRES viat: expansion (ya OK)')
+    else:
+        fixes_fail.append('CRES viat: expansion (patron no encontrado)')
+
+    # 2) Render columna VIATICOS en fila worker:
+    #    a) Quitar showUSD para que siempre muestre perdiem (viáticos son USD siempre)
+    #    b) COSTO TOTAL USD debe incluir perdiem: e.usd_cost + (e.perdiem||0)
+    #    c) Sort incluye perdiem en la clave de orden
+    # Este fix cubre el patron exacto del HTML actual (ya con e.perdiem en el calculo de viat)
+    import re as _vre
+    # Fix render viáticos: quitar showUSD && del render de viat
+    _OLD_VIAT_SHOW = "${showUSD && viat>0.01 ? fU(viat) : '—'}</td>"
+    _NEW_VIAT_SHOW = "${viat>0.01 ? fU(viat) : '—'}</td>"
+    if _OLD_VIAT_SHOW in html:
+        html = html.replace(_OLD_VIAT_SHOW, _NEW_VIAT_SHOW, 1)
+        fixes_ok.append('CRES viat: quitar showUSD del render')
+    elif _NEW_VIAT_SHOW in html:
+        fixes_ok.append('CRES viat: render (ya sin showUSD)')
+    else:
+        fixes_fail.append('CRES viat: render showUSD (patron no encontrado)')
+
+    # Fix COSTO TOTAL USD worker: incluir perdiem en el total del worker
+    _OLD_TOTAL_W = "${showUSD && e.usd_cost>0 ? fU(e.usd_cost) : '—'}</td>\n      <td class=\"num\">${costMXN}</td>"
+    _NEW_TOTAL_W = "${showUSD && (e.usd_cost+(e.perdiem||0))>0 ? fU(e.usd_cost+(e.perdiem||0)) : '—'}</td>\n      <td class=\"num\">${costMXN}</td>"
+    if _OLD_TOTAL_W in html:
+        html = html.replace(_OLD_TOTAL_W, _NEW_TOTAL_W, 1)
+        fixes_ok.append('CRES total worker: incluye perdiem')
+    elif _NEW_TOTAL_W in html:
+        fixes_ok.append('CRES total worker: (ya OK)')
+    else:
+        fixes_fail.append('CRES total worker: (patron no encontrado)')
+
+    # 3) Sort expansion: incluir perdiem en la clave de orden para workers solo-viat
+    OLD_SORT_CRES = "entries.sort((a,b)=>(b.usd_cost+b.mxn_cost)-(a.usd_cost+a.mxn_cost))"
+    NEW_SORT_CRES = "entries.sort((a,b)=>((b.usd_cost+(b.perdiem||0))+b.mxn_cost)-((a.usd_cost+(a.perdiem||0))+a.mxn_cost))"
+    if OLD_SORT_CRES in html:
+        html = html.replace(OLD_SORT_CRES, NEW_SORT_CRES)
+        fixes_ok.append('CRES sort: incluye perdiem en orden')
+    elif NEW_SORT_CRES in html:
+        fixes_ok.append('CRES sort: (ya OK)')
+    else:
+        fixes_fail.append('CRES sort: (patron no encontrado)')
+
+    # 4) Calculo de viat en export XLS por mes
+    OLD_VIAT_XLS1 = "    const usdHrs = e.rate>0 ? e.rate*e.usd_hrs : 0;\n    const viat = e.usd_cost - usdHrs;\n    rows.push([e.n"
+    NEW_VIAT_XLS1 = "    const usdHrs = e.rate>0 ? e.rate*e.usd_hrs : 0;\n    const viat = (e.perdiem != null && e.perdiem > 0) ? e.perdiem : Math.max(0, e.usd_cost - usdHrs);\n    rows.push([e.n"
+    if OLD_VIAT_XLS1 in html:
+        html = html.replace(OLD_VIAT_XLS1, NEW_VIAT_XLS1)
+        fixes_ok.append('CRES viat: export XLS mes')
+    elif NEW_VIAT_XLS1 in html:
+        fixes_ok.append('CRES viat: export XLS mes (ya OK)')
+
+    # 5) Calculo de viat en export XLS todos los meses
+    OLD_VIAT_XLS2 = "        const usdHrs = e.rate>0 ? e.rate*(e.usd_hrs||0) : 0;\n        const viat = e.usd_cost - usdHrs;\n        rows.push([mes"
+    NEW_VIAT_XLS2 = "        const usdHrs = e.rate>0 ? e.rate*(e.usd_hrs||0) : 0;\n        const viat = (e.perdiem != null && e.perdiem > 0) ? e.perdiem : Math.max(0, e.usd_cost - usdHrs);\n        rows.push([mes"
+    if OLD_VIAT_XLS2 in html:
+        html = html.replace(OLD_VIAT_XLS2, NEW_VIAT_XLS2)
+        fixes_ok.append('CRES viat: export XLS todos')
+    elif NEW_VIAT_XLS2 in html:
+        fixes_ok.append('CRES viat: export XLS todos (ya OK)')
+
+    # 6) Badge $x/día: usar e.rate_viat del CRES (valor del mes) en lugar del mapa global RATE_VIAT
+    OLD_BADGE_VIAT_V1 = "const rateViat = (RATE_VIAT && RATE_VIAT[e.n.toUpperCase()]) || 0;"
+    OLD_BADGE_VIAT = "const rateViat = (e.rate_viat && e.rate_viat > 0) ? e.rate_viat : ((RATE_VIAT && RATE_VIAT[e.n.toUpperCase()]) || 0);"
+    NEW_BADGE_VIAT = "const rateViat = (e.rate_viat != null && e.rate_viat > 0) ? e.rate_viat : 0;"
+    cnt_badge = html.count(OLD_BADGE_VIAT_V1) + html.count(OLD_BADGE_VIAT)
+    if html.count(OLD_BADGE_VIAT_V1) > 0:
+        html = html.replace(OLD_BADGE_VIAT_V1, NEW_BADGE_VIAT)
+        fixes_ok.append(f"CRES badge $/día: usa e.rate_viat del mes (v1, {html.count(NEW_BADGE_VIAT)} ocurrencias)")
+    elif html.count(OLD_BADGE_VIAT) > 0:
+        html = html.replace(OLD_BADGE_VIAT, NEW_BADGE_VIAT)
+        fixes_ok.append(f"CRES badge $/día: usa e.rate_viat del mes (v2, {html.count(NEW_BADGE_VIAT)} ocurrencias)")
+    elif NEW_BADGE_VIAT in html:
+        fixes_ok.append('CRES badge $/día: (ya OK, usa e.rate_viat)')
+    else:
+        fixes_fail.append('CRES badge $/día: patron no encontrado')
+
+        print("  FIXES OK:", ", ".join(fixes_ok))
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
     return html
 
-def actualizar_pasivo_html(html, cierres, detalle, detalle_rec, vivo):
+def actualizar_pasivo_html(html, cierres, detalle, vivo):
     """Actualiza la sección hardcodeada de HISTORIAL PASIVOS en el HTML."""
     print("  Actualizando HISTORIAL PASIVOS en HTML...")
-    fixes_ok = []; fixes_fail = []
 
     fN = lambda n: f"{n:,.1f}" if n != int(n) else f"{int(n):,}"
     fU = lambda n: f"${int(round(n)):,}"
@@ -1563,529 +2059,8 @@ def actualizar_pasivo_html(html, cierres, detalle, detalle_rec, vivo):
         html, count=1
     )
 
-    # 5. Actualizar PASIVOS_REC JS (desglose por recurso)
-    meses_rec = [m for m in orden_meses if m in detalle_rec and detalle_rec[m]]
-    if meses_rec:
-        pasivos_rec_js = {}
-        for m in meses_rec:
-            label = MES_LABEL[m]
-            pasivos_rec_js[label] = detalle_rec[m]
-        pasivos_rec_str = json.dumps(pasivos_rec_js, ensure_ascii=False)
-        # Reemplazar var PASIVOS_REC si existe, o insertar después de var PASIVOS
-        if 'var PASIVOS_REC=' in html or 'var PASIVOS_REC =' in html:
-            html = re.sub(r'var PASIVOS_REC\s*=\s*\{[\s\S]*?\};', f'var PASIVOS_REC={pasivos_rec_str};', html, count=1)
-        else:
-            # Insertar después del bloque var PASIVOS
-            _pasivos_pos = html.find('var PASIVOS=')
-            if _pasivos_pos < 0:
-                _pasivos_pos = html.find('var PASIVOS =')
-            if _pasivos_pos >= 0:
-                _pasivos_end = html.find('\n', _pasivos_pos)
-                if _pasivos_end >= 0:
-                    html = html[:_pasivos_end+1] + f'var PASIVOS_REC={pasivos_rec_str};\n' + html[_pasivos_end+1:]
-            else:
-                print('    ⚠️  No se encontró var PASIVOS para insertar PASIVOS_REC')
-
-        # Actualizar tabs de recurso (botones rrbtn-)
-        rec_tabs_html = ''
-        ultimo_rec = meses_rec[-1]
-        for m in meses_rec:
-            label = MES_LABEL[m]
-            btn_id = f"rrbtn-{label.replace('-','')}"
-            if m == ultimo_rec:
-                style = 'background:var(--blue);color:#fff;border:1px solid var(--blue)'
-            else:
-                style = 'border:1px solid #CBD5E1;background:#F1F5F9;color:#64748B'
-            rec_tabs_html += f'      <button onclick="showRecursoMes(\'{label}\',this)" id="{btn_id}" style="padding:5px 12px;border-radius:6px;{style};font-size:.75rem;cursor:pointer">{label.upper()}</button>\n'
-
-        # Reemplazar el div de tabs de recurso — buscar por id="rrbtn-container" o por botones rrbtn
-        _rrbtn_container = '<div style="display:flex;gap:8px;margin-bottom:8px" id="rrbtn-container">'
-        _rrbtn_pos = html.find(_rrbtn_container)
-        if _rrbtn_pos >= 0:
-            _rrbtn_end = html.find('</div>', _rrbtn_pos)
-            if _rrbtn_end >= 0:
-                html = html[:_rrbtn_pos + len(_rrbtn_container)] + '\n' + rec_tabs_html + '    ' + html[_rrbtn_end:]
-                print(f'    OK tabs rrbtn actualizados en rrbtn-container')
-            else:
-                print('    ⚠️  No se encontró cierre </div> de rrbtn-container')
-        else:
-            # fallback: buscar por patrón flex con botones rrbtn
-            _flex_pat = r'(<div style="display:flex;gap:8px;margin-bottom:8px"[^>]*>)\s*(?:<button[^>]*rrbtn[^>]*>[\s\S]*?</button>\s*)*(</div>)'
-            new_html2, n2 = re.subn(_flex_pat,
-                lambda x: x.group(1) + '\n' + rec_tabs_html + '    ' + x.group(2),
-                html, count=1)
-            if n2:
-                html = new_html2
-            else:
-                print('    ⚠️  No se encontró div de tabs rrbtn para reemplazar')
-
-        print(f"    OK PASIVOS_REC — meses: {[MES_LABEL[m] for m in meses_rec]}")
-    else:
-        print('    ⚠️  No hay datos de detalle_rec para PASIVOS_REC')
-
     print(f"    OK HISTORIAL PASIVOS actualizado — meses: {[MES_LABEL[m] for m in orden_meses if m in cierres]}")
-
-    # FIX DUPLICATE-BLOCK: Eliminar bloque duplicado (segunda copia de todas las views)
-    # El bloque duplicado empieza con '<div class="nav-right">' huérfano y termina antes del init script
-    # Se busca el patron: </script> seguido de la nav-right huérfana + </nav> + view-resumen duplicado
-    import re as _re
-    _DUP_PATTERN = r'(</script>\n)\n  <div class=nav-right>.*?(?=<script>\n// Inicialización directa)'
-    _dup_match = _re.search(_DUP_PATTERN, html, flags=_re.DOTALL)
-    if _dup_match:
-        html = html[:_dup_match.start()] + _dup_match.group(1) + html[_dup_match.end():]
-        fixes_ok.append('DUPLICATE-BLOCK eliminado (segundo set de views + nav huérfano)')
-    else:
-        # Already clean or different structure - check if duplicate view-resumen exists
-        _dup_count = html.count('<div id=view-resumen>')
-        if _dup_count == 1:
-            fixes_ok.append('DUPLICATE-BLOCK (ya OK - solo 1 view-resumen)')
-        else:
-            fixes_fail.append(f'DUPLICATE-BLOCK (patron no encontrado, view-resumen count={_dup_count})')
-
-
-    # FIX RS-BIND-TOOLTIP: Restaurar función rsBindTooltip eliminada con bloque duplicado
-    _RS_INIT_MARKER = '<script>\n// Inicialización directa'
-    _RS_FN_MARKER = 'function rsBindTooltip('
-    if _RS_FN_MARKER not in html and _RS_INIT_MARKER in html:
-        _rs_script = """<script>
-function rsBindTooltip(container, rowClass, dataArr, mode){
-  if(!container) return;
-  function showTT(e, row){
-    var tt=document.getElementById('rs-tooltip'); if(!tt) return;
-    var idx=parseInt(row.getAttribute('data-ttidx'),10);
-    var d=dataArr[idx]; if(!d) return;
-    var valColor = mode==='egr'?'#EF9090':'#6EE7B7';
-    var mrows = d.mdata.map(function(r){
-      return '<div class=\"tt-row\"><span class=\"tt-lbl\">'+r.m+'</span><span class=\"tt-val\" style=\"color:'+valColor+'\">'+fmtKRs(r.v)+'</span></div>';
-    }).join('');
-    tt.innerHTML='<div class=\"tt-title\">'+d.title+'</div>'+
-      '<div class=\"tt-row\"><span class=\"tt-lbl\">Total YTD</span><span class=\"tt-val\">'+d.total+'</span></div>'+
-      '<div class=\"tt-row\"><span class=\"tt-lbl\">Participación</span><span class=\"tt-val\">'+d.pct+'</span></div>'+
-      (mrows?'<div style=\"border-top:1px solid rgba(255,255,255,.1);margin-top:5px;padding-top:5px\">'+mrows+'</div>':'');
-    tt.style.display='block';
-    tt.style.left=(e.clientX+14)+'px';
-    tt.style.top=(e.clientY-10)+'px';
-    var ttW=tt.offsetWidth,ttH=tt.offsetHeight;
-    if(e.clientX+14+ttW>window.innerWidth) tt.style.left=(e.clientX-ttW-10)+'px';
-    if(e.clientY-10+ttH>window.innerHeight) tt.style.top=(e.clientY-ttH)+'px';
-  }
-  container.addEventListener('mouseover',function(e){
-    var row=e.target.closest('.'+rowClass); if(!row) return;
-    showTT(e,row);
-  });
-  container.addEventListener('mousemove',function(e){
-    var row=e.target.closest('.'+rowClass); if(!row) return;
-    showTT(e,row);
-  });
-  container.addEventListener('mouseout',function(e){
-    var row=e.target.closest('.'+rowClass);
-    if(row&&!row.contains(e.relatedTarget)){
-      var tt=document.getElementById('rs-tooltip'); if(tt) tt.style.display='none';
-    }
-  });
-}
-</script>
-"""
-        html = html.replace(_RS_INIT_MARKER, _rs_script + _RS_INIT_MARKER)
-        fixes_ok.append('RS-BIND-TOOLTIP restaurado (función inyectada antes del init script)')
-    elif _RS_FN_MARKER in html:
-        fixes_ok.append('RS-BIND-TOOLTIP (ya OK)')
-    else:
-        fixes_fail.append('RS-BIND-TOOLTIP (no se pudo inyectar)')
-
-    # FIX RS-CANVAS-CHART: Restaurar código de dibujo del canvas "Ingresos vs Egresos por Mes"
-    # El bloque de dibujo estaba al final de rsRender() y se perdió al eliminar el bloque duplicado
-    _CANVAS_MARKER = '// ====== MINI CHART: Ing vs Egr barras ======'
-    _RS_RENDER_CLOSE = 'function fmtKRs(v){'
-    if _CANVAS_MARKER not in html and _RS_RENDER_CLOSE not in html:
-        # Find closing "}" of rsRender - it's right after the rs-ops section closes
-        # The rs-ops section ends with "  }" then the outer "}" closes rsRender
-        # We look for the pattern: end of rsRender inner block then outer closing brace then </script>
-        import re as _re_canvas
-        # Pattern: close of inner block "  }" + close of rsRender "}" + </script>
-        _canvas_drawing = """
-  // ====== MINI CHART: Ing vs Egr barras ======
-  const canvas = document.getElementById('rs-canvas');
-  if(!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width = canvas.parentElement.clientWidth - 40;
-  const H = canvas.height = 160;
-  ctx.clearRect(0,0,W,H);
-  const padL=40,padR=8,padT=16,padB=28;
-  const data = months.map(function(m){ return {m:m,ing:FDATA[m]?FDATA[m].ing_mx:0,egr:FDATA[m]?FDATA[m].egr_mx:0}; });
-  const maxV = Math.max.apply(null, data.map(function(d){ return Math.max(d.ing,d.egr); }));
-  const scY = (H-padT-padB)/maxV;
-  const slotW = (W-padL-padR)/data.length;
-  const bw = slotW*0.35;
-  // Grid lines
-  ctx.strokeStyle='#F1F5F9'; ctx.lineWidth=1;
-  [0.25,0.5,0.75,1].forEach(function(f){
-    const y=H-padB-f*(H-padT-padB);
-    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
-    ctx.fillStyle='#CBD5E1'; ctx.font='9px system-ui'; ctx.textAlign='right';
-    ctx.fillText('$'+(maxV*f/1e6).toFixed(0)+'M',padL-3,y+3);
-  });
-  data.forEach(function(d,i){
-    const x = padL + i*slotW + slotW/2;
-    const hi = d.ing*scY, he = d.egr*scY;
-    const yi = H-padB-hi, ye = H-padB-he;
-    ctx.fillStyle='rgba(5,150,105,0.85)';
-    ctx.beginPath(); ctx.roundRect(x-bw-1,yi,bw,hi,2); ctx.fill();
-    ctx.fillStyle='rgba(220,38,38,0.75)';
-    ctx.beginPath(); ctx.roundRect(x+1,ye,bw,he,2); ctx.fill();
-    ctx.fillStyle='#64748B'; ctx.font='8px system-ui'; ctx.textAlign='center';
-    ctx.fillText(d.m,x,H-padB+10);
-  });
-  // Legend
-  ctx.fillStyle='rgba(5,150,105,0.85)'; ctx.fillRect(padL,H-4,10,4);
-  ctx.fillStyle='#475569'; ctx.font='9px system-ui'; ctx.textAlign='left';
-  ctx.fillText('Ingresos',padL+12,H-1);
-  ctx.fillStyle='rgba(220,38,38,0.75)'; ctx.fillRect(padL+70,H-4,10,4);
-  ctx.fillText('Egresos',padL+83,H-1);
-  // Hover tooltip
-  var rsBarRegions = data.map(function(d,i){
-    const x = padL + i*slotW + slotW/2;
-    const hi = d.ing*scY, he = d.egr*scY;
-    const util = d.ing - d.egr;
-    return {m:d.m, ing:d.ing, egr:d.egr, util:util,
-            x1:x-bw-1, x2:x+bw+1+bw+1, y1:padT, y2:H-padB, cx:x};
-  });
-  var rsBarsData = {regions:rsBarRegions, canvas:canvas, padL:padL, padR:padR, padT:padT, padB:padB};
-  canvas._rsData = rsBarsData;
-  if(canvas._rsMoveHandler) canvas.removeEventListener('mousemove', canvas._rsMoveHandler);
-  if(canvas._rsLeaveHandler) canvas.removeEventListener('mouseleave', canvas._rsLeaveHandler);
-  canvas._rsMoveHandler = function(e){
-    var tt = document.getElementById('rs-tooltip');
-    if(!tt) return;
-    var rect = canvas.getBoundingClientRect();
-    var scaleX = canvas.width / rect.width;
-    var cx = (e.clientX - rect.left) * scaleX;
-    var found = null;
-    rsBarRegions.forEach(function(r){ if(cx>=r.x1-4 && cx<=r.x2+4) found=r; });
-    if(found){
-      var util = found.util;
-      var margin = found.ing>0?(util/found.ing*100).toFixed(1)+'%':'—';
-      var clsU = util>=0?'tt-pos':'tt-neg';
-      tt.innerHTML =
-        '<div class="tt-title">'+found.m+' 2026</div>'+
-        '<div class="tt-row"><span class="tt-lbl">Ingresos</span><span class="tt-val tt-pos">'+fmtKRs(found.ing)+'</span></div>'+
-        '<div class="tt-row"><span class="tt-lbl">Egresos</span><span class="tt-val tt-neg">'+fmtKRs(found.egr)+'</span></div>'+
-        '<div class="tt-row" style="border-top:1px solid rgba(255,255,255,.1);margin-top:4px;padding-top:4px"><span class="tt-lbl">Liquidez</span><span class="tt-val '+clsU+'">'+fmtKRs(util)+'</span></div>'+
-        '<div class="tt-row"><span class="tt-lbl">% Liquidez Mensual</span><span class="tt-val '+clsU+'">'+margin+'</span></div>';
-      tt.style.display='block';
-      tt.style.left=(e.clientX+14)+'px';
-      tt.style.top=(e.clientY-10)+'px';
-      var ttW=tt.offsetWidth, ttH=tt.offsetHeight;
-      if(e.clientX+14+ttW>window.innerWidth) tt.style.left=(e.clientX-ttW-10)+'px';
-      if(e.clientY-10+ttH>window.innerHeight) tt.style.top=(e.clientY-ttH)+'px';
-    } else {
-      tt.style.display='none';
-    }
-  };
-  canvas._rsLeaveHandler = function(){
-    var tt=document.getElementById('rs-tooltip'); if(tt) tt.style.display='none';
-  };
-  canvas.addEventListener('mousemove', canvas._rsMoveHandler);
-  canvas.addEventListener('mouseleave', canvas._rsLeaveHandler);
-"""
-        _fmtKRs_fn = """
-function fmtKRs(v){
-  if(Math.abs(v)>=1e6) return (v<0?'-':'')+'$'+(Math.abs(v)/1e6).toFixed(1)+'M';
-  if(Math.abs(v)>=1e3) return (v<0?'-':'')+'$'+(Math.abs(v)/1e3).toFixed(0)+'K';
-  return (v<0?'-':'')+'$'+Math.abs(v).toFixed(0);
-}"""
-        # Find end of rsRender: "  }\n}" immediately before "\n</script>"
-        _old_rs_end = '  }\n}\n</script>'
-        _new_rs_end = '  }' + _canvas_drawing + '\n}\n' + _fmtKRs_fn + '\n</script>'
-        if _old_rs_end in html:
-            html = html.replace(_old_rs_end, _new_rs_end, 1)
-            fixes_ok.append('RS-CANVAS-CHART (inyectado)')
-        else:
-            fixes_fail.append('RS-CANVAS-CHART (patron no encontrado)')
-    else:
-        fixes_ok.append('RS-CANVAS-CHART (ya OK)')
-
-
-    # FIX COSTOS-TABLE-STRUCTURE: Meter tabla y graficas de costos dentro de view-costos con chart-card wrapper
-    _ct_old_marker = 'id="ctbody"'
-    _ct_new_marker = 'chart-card'
-    _ct_idx = html.find(_ct_old_marker)
-    if _ct_idx > 0:
-        _ct_pre = html[max(0,_ct_idx-300):_ct_idx]
-        if _ct_new_marker in _ct_pre:
-            fixes_ok.append('COSTOS-TABLE-STRUCTURE (ya OK - ctbody ya tiene chart-card wrapper)')
-        else:
-            # The table and graficas are outside view-costos - apply the fix
-            _CT_OLD_PAT = ('<table>\n    <thead>\n      <tr>\n'
-                           '        <th style="min-width:200px">Mes</th>\n'
-                           '        <th class="num">Costo Hrs USD</th>\n'
-                           '        <th class="num">PERDIEM USD</th>\n'
-                           '        <th class="num">Otros Costos USD</th>\n'
-                           '        <th class="num">Costo Total USD</th>\n'
-                           '        <th class="num">Costo MXN</th>\n'
-                           '        <th style="width:32px"></th>\n'
-                           '      </tr>\n    </thead>\n'
-                           '    <tbody id="ctbody"></tbody>\n'
-                           '    <tfoot id="ctfoot"></tfoot>\n  </table>')
-            _CT_NEW_PAT = (
-                '  <div class="chart-card" style="padding:0;overflow:hidden">\n'
-                '    <table style="table-layout:fixed;width:100%">\n'
-                '      <colgroup>\n'
-                '        <col style="width:200px">\n'
-                '        <col style="width:120px"><col style="width:110px"><col style="width:120px">\n'
-                '        <col style="width:120px"><col style="width:110px"><col style="width:32px">\n'
-                '      </colgroup>\n'
-                '      <thead><tr>\n'
-                '        <th>Mes</th>\n'
-                '        <th class="num">Costo Hrs USD</th>\n'
-                '        <th class="num">PERDIEM USD</th>\n'
-                '        <th class="num">Otros Costos USD</th>\n'
-                '        <th class="num">Costo Total USD</th>\n'
-                '        <th class="num">Costo MXN</th>\n'
-                '        <th style="width:32px"></th>\n'
-                '      </tr></thead>\n'
-                '      <tbody id="ctbody"></tbody>\n'
-                '      <tfoot id="ctfoot"></tfoot>\n'
-                '    </table>\n'
-                '  </div>\n'
-            )
-            if _CT_OLD_PAT in html:
-                html = html.replace(_CT_OLD_PAT, _CT_NEW_PAT)
-                fixes_ok.append('COSTOS-TABLE-STRUCTURE corregida (chart-card wrapper agregado)')
-            else:
-                fixes_fail.append('COSTOS-TABLE-STRUCTURE (patron tabla no encontrado)')
-    else:
-        fixes_fail.append('COSTOS-TABLE-STRUCTURE (ctbody no encontrado)')
-
-
-    # FIX SALDO-DIA: Agregar función fRenderSaldoDia() y llamarla desde fRenderAll()
-    _saldo_marker = 'function fRenderSaldoDia()'
-    _frender_call = 'fRenderSaldoDia()'
-    if _saldo_marker not in html:
-        # Build the JS render function
-        _saldo_fn = """
-function fRenderSaldoDia(){
-  if(typeof SALDO_DIA === 'undefined') return;
-  var s = SALDO_DIA;
-  // fecha
-  var elFecha = document.getElementById('flujo-saldo-fecha');
-  if(elFecha) elFecha.textContent = s.fecha ? 'al ' + s.fecha : '';
-  // total
-  var elTotal = document.getElementById('flujo-saldo-total');
-  if(elTotal){
-    var t = s.total || 0;
-    var tFmt;
-    if(t>=1e6) tFmt='$'+(t/1e6).toFixed(2).replace(/\\.?0+$/,'')+'M';
-    else if(t>=1e3) tFmt='$'+(t/1e3).toFixed(0)+'K';
-    else tFmt='$'+t.toFixed(0);
-    elTotal.textContent = tFmt;
-  }
-  // bank cards
-  var elBanks = document.getElementById('flujo-saldo-banks');
-  if(!elBanks || !s.banks) return;
-  var bankDefs = [
-    {key:'Vs BBVA pesos', label:'BBVA Pesos', isMXN:true},
-    {key:'Vs BBVA USD',   label:'BBVA USD',   isMXN:false},
-    {key:'BMX USD',       label:'BMX USD',    isMXN:false},
-    {key:'BMXQRO MN',     label:'BMX QRO MN', isMXN:true},
-    {key:'BANAMEX MN',    label:'Banamex MN', isMXN:true}
-  ];
-  var cards = bankDefs.map(function(b){
-    var v = s.banks[b.key] || 0;
-    var vFmt;
-    if(v>=1e6) vFmt='$'+(v/1e6).toFixed(1)+'M';
-    else if(v>=1e3) vFmt='$'+(v/1e3).toFixed(0)+'K';
-    else vFmt='$'+Math.round(v);
-    var sub = b.isMXN ? 'MXN' : 'MXN equiv.';
-    return '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:7px 9px">'
-      +'<div style="font-size:.52rem;font-weight:700;color:#93C5FD;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+b.label+'</div>'
-      +'<div style="font-size:.72rem;font-weight:800;color:#fff;white-space:nowrap">'+vFmt+'</div>'
-      +'<div style="font-size:.5rem;color:#64748B;margin-top:1px">'+sub+'</div>'
-      +'</div>';
-  });
-  elBanks.innerHTML = cards.join('');
-}"""
-        # Insert fRenderSaldoDia right before fRenderAll
-        _target = 'function fRenderAll(){'
-        if _target in html:
-            html = html.replace(_target, _saldo_fn + '\nfunction fRenderAll(){', 1)
-            fixes_ok.append('SALDO-DIA (fRenderSaldoDia inyectada)')
-        else:
-            fixes_fail.append('SALDO-DIA (fRenderAll no encontrada)')
-    else:
-        fixes_ok.append('SALDO-DIA (fRenderSaldoDia ya OK)')
-
-    # Add call to fRenderSaldoDia in fRenderAll if not there
-    _frender_body_old = 'function fRenderAll(){'
-    _frender_call_pat = 'fRenderSaldoDia();'
-    if _frender_body_old in html and _frender_call_pat not in html:
-        # Find fRenderAll body and add call at the start
-        _old_frender_first = 'function fRenderAll(){\n  fRenderKPIs();'
-        _new_frender_first = 'function fRenderAll(){\n  fRenderSaldoDia();\n  fRenderKPIs();'
-        if _old_frender_first in html:
-            html = html.replace(_old_frender_first, _new_frender_first, 1)
-            fixes_ok.append('SALDO-DIA (fRenderAll actualizada)')
-        else:
-            fixes_fail.append('SALDO-DIA (fRenderAll body patron no encontrado)')
-    elif _frender_call_pat in html:
-        fixes_ok.append('SALDO-DIA (fRenderAll call ya OK)')
-
-    # FIX DIV-BALANCE-COSTOS: Asegurar que view-flujo NO quede anidado dentro de view-costos
-    # El div de view-costos necesita un </div> extra antes de su cierre para balancear la estructura
-    _vc_close_bad  = '</div><!-- /view-costos -->'
-    _vc_close_good = '</div>\n</div><!-- /view-costos -->'
-    _costos_start = html.find('<div id="view-costos"')
-    _flujo_start  = html.find('<div id="view-flujo"')
-    if _costos_start != -1 and _flujo_start != -1:
-        _seg = html[_costos_start:_flujo_start]
-        _balance = _seg.count('<div') - _seg.count('</div')
-        if _balance == 0:
-            fixes_ok.append('DIV-BALANCE-COSTOS (ya OK - balance=0)')
-        elif _balance == 1 and _vc_close_bad in html and _vc_close_good not in html:
-            html = html.replace(_vc_close_bad, _vc_close_good, 1)
-            fixes_ok.append('DIV-BALANCE-COSTOS: </div> extra agregado - balance corregido')
-        else:
-            fixes_ok.append(f'DIV-BALANCE-COSTOS (balance={_balance}, revisar manualmente)')
-    else:
-        fixes_fail.append('DIV-BALANCE-COSTOS (view-costos o view-flujo no encontrado)')
-
-    # FIX SALDO-DIA-STUB: Eliminar el stub var SALDO_DIA vacío que sobreescribe los datos reales
-    # El bloque de marcadores ya inyecta el var SALDO_DIA con datos reales más arriba;
-    # el stub hardcodeado en el HTML base lo sobreescribe con ceros, borrarlo.
-    _saldo_stub = 'var SALDO_DIA = {"fecha":"","total":0,"banks":{}};\n'
-    if _saldo_stub in html:
-        html = html.replace(_saldo_stub, '', 1)
-        fixes_ok.append('SALDO-DIA-STUB (stub duplicado eliminado)')
-    else:
-        fixes_ok.append('SALDO-DIA-STUB (ya OK - sin stub)')
-
-    # FIX COSTOS-TABLE-TAG: la etiqueta <table puede perderse, restaurarla si falta
-    _BROKEN_TABLE = '>\n    \n      style="width:100%;border-collapse:collapse;font-size:.78rem">\n      <thead>'
-    _FIXED_TABLE  = '>\n    \n      <table style="width:100%;border-collapse:collapse;font-size:.78rem">\n      <thead>'
-    if _BROKEN_TABLE in html:
-        html = html.replace(_BROKEN_TABLE, _FIXED_TABLE, 1)
-        fixes_ok.append('COSTOS-TABLE-TAG: <table> restaurado (tag faltante)')
-    else:
-        fixes_ok.append('COSTOS-TABLE-TAG (ya OK)')
-
-    # FIX COSTOS-TABLE-GUARD: buildCostosTable necesita guard if(!tb) return
-    _OLD_GUARD = "function buildCostosTable(){\n  const tb = document.getElementById('ctbody');\n  // Remember"
-    _NEW_GUARD = "function buildCostosTable(){\n  const tb = document.getElementById('ctbody');\n  if(!tb) return;  // guard: tabla no disponible aun\n  // Remember"
-    if _NEW_GUARD in html:
-        fixes_ok.append('COSTOS-TABLE-GUARD (ya OK)')
-    elif _OLD_GUARD in html:
-        html = html.replace(_OLD_GUARD, _NEW_GUARD, 1)
-        fixes_ok.append('COSTOS-TABLE-GUARD: guard if(!tb) agregado a buildCostosTable')
-    else:
-        fixes_fail.append('COSTOS-TABLE-GUARD (patron no encontrado)')
-
-    # FIX BANCOS-NaN: fRenderBancos debe manejar banks como objetos {mxn,usd}
-    _OLD_BANCOS = (
-        '  if(typeof SALDO_DIA !== \'undefined\' && SALDO_DIA.banks){\n'
-        '    var b = SALDO_DIA.banks;\n'
-        '    var fmt = function(v){ return v ? \'$\' + (v/1000000).toFixed(2) + \'M\' : \'$0\'; };\n'
-        '    var el;\n'
-        '    el = document.getElementById(\'fb-bbvamn\'); if(el) el.textContent = fmt(b[\'BBVA Pesos\']);\n'
-        '    el = document.getElementById(\'fb-bbvausd\'); if(el) el.textContent = fmt(b[\'BBVA USD\']);\n'
-        '    el = document.getElementById(\'fb-bmxmn\'); if(el) el.textContent = fmt(b[\'BMX MXN\']);\n'
-        '    el = document.getElementById(\'fb-bmxusd\'); if(el) el.textContent = fmt(b[\'BMX USD\']);'
-    )
-    _NEW_BANCOS = (
-        '  if(typeof SALDO_DIA !== \'undefined\' && SALDO_DIA.banks){\n'
-        '    var b = SALDO_DIA.banks;\n'
-        '    var getVal = function(entry){ if(!entry) return 0; if(typeof entry === \'number\') return entry; return entry.mxn || 0; };\n'
-        '    var fmt = function(v){ var n = getVal(v); return n ? \'$\' + (n/1000000).toFixed(2) + \'M\' : \'$0\'; };\n'
-        '    var el;\n'
-        '    var bbvamn = b[\'BBVA Pesos\'] || b[\'Vs BBVA pesos\'] || b[\'BBVA MN\'] || 0;\n'
-        '    el = document.getElementById(\'fb-bbvamn\'); if(el) el.textContent = fmt(bbvamn);\n'
-        '    var bbvausd = b[\'BBVA USD\'] || b[\'Vs BBVA USD\'] || 0;\n'
-        '    el = document.getElementById(\'fb-bbvausd\'); if(el) el.textContent = fmt(bbvausd);\n'
-        '    var bmxmn = b[\'BMX MXN\'] || b[\'BMX QRO MN\'] || b[\'BMXQRO MN\'] || b[\'BMX Pesos\'] || 0;\n'
-        '    el = document.getElementById(\'fb-bmxmn\'); if(el) el.textContent = fmt(bmxmn);\n'
-        '    var bmxusd = b[\'BMX USD\'] || b[\'Vs BMX USD\'] || 0;\n'
-        '    el = document.getElementById(\'fb-bmxusd\'); if(el) el.textContent = fmt(bmxusd);'
-    )
-    if _NEW_BANCOS in html:
-        fixes_ok.append('BANCOS-NaN (ya OK)')
-    elif _OLD_BANCOS in html:
-        html = html.replace(_OLD_BANCOS, _NEW_BANCOS, 1)
-        fixes_ok.append('BANCOS-NaN: fRenderBancos corregido (getVal para objetos {mxn,usd})')
-    else:
-        fixes_fail.append('BANCOS-NaN (patron no encontrado)')
-
-    # FIX TAB-FLUJO: Asegurar que tab-flujo tenga classList.toggle en showTab
-    _OLD_TAB_TOGGLE = "  document.getElementById('tab-resumen').classList.toggle('active', t==='resumen');\n  document.getElementById('tab-horas').classList.toggle('active', t==='horas');\n  document.getElementById('tab-costos').classList.toggle('active', t==='costos');"
-    _NEW_TAB_TOGGLE = "  document.getElementById('tab-resumen').classList.toggle('active', t==='resumen');\n  document.getElementById('tab-horas').classList.toggle('active', t==='horas');\n  document.getElementById('tab-costos').classList.toggle('active', t==='costos');\n  document.getElementById('tab-flujo').classList.toggle('active', t==='flujo');"
-    if _NEW_TAB_TOGGLE in html:
-        fixes_ok.append('tab-flujo toggle (ya OK)')
-    elif _OLD_TAB_TOGGLE in html:
-        html = html.replace(_OLD_TAB_TOGGLE, _NEW_TAB_TOGGLE, 1)
-        fixes_ok.append('tab-flujo toggle: agregado')
-    else:
-        fixes_ok.append('tab-flujo toggle (patron no encontrado — puede ser OK)')
-
-    # FIX SALDO-DIA-DUP: Eliminar declaración duplicada vieja de SALDO_DIA con "Vs BBVA pesos"
-    _OLD_SALDO_PREFIX = 'var SALDO_DIA = {"fecha": "9-Oct-2026", "total":'
-    _idx_old_saldo = html.find(_OLD_SALDO_PREFIX)
-    if _idx_old_saldo != -1:
-        _end_old_saldo = html.find('};', _idx_old_saldo) + 2
-        html = html[:_idx_old_saldo] + '/* SALDO_DIA definido mas abajo */' + html[_end_old_saldo:]
-        fixes_ok.append('SALDO-DIA-DUP: duplicado viejo eliminado')
-    else:
-        fixes_ok.append('SALDO-DIA-DUP (ya OK — sin duplicado)')
-
     return html
-
-
-# ── SALDO DIA desde CONCENTRADO (Flujo de Caja) ──────────────────────────────
-def extraer_saldo_dia():
-    """Lee el último saldo diario de bancos desde la hoja CONCENTRADO."""
-    print("  SALDO_DIA (CONCENTRADO)...")
-    wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
-    ws = wb['CONCENTRADO']
-    bank_labels = {'Vs BBVA pesos', 'Vs BBVA USD', 'BMX USD', 'BMXQRO MN', 'BANAMEX MN'}
-    current_date = None
-    last_date = None
-    last_saldo = None
-    last_banks = {}
-    reading_banks = False
-    for row in ws.iter_rows(values_only=True, max_col=15):
-        if row[1] and 'POSICION DIARIA' in str(row[1]):
-            current_date = row[3]
-            reading_banks = False
-        if row[11] is not None and str(row[11]).strip() == 'SALDO' and row[12] is not None:
-            try:
-                last_saldo = float(row[12])
-                last_date = current_date
-                last_banks = {}
-                reading_banks = True
-            except (TypeError, ValueError):
-                pass
-        elif reading_banks and row[11] is not None:
-            label = str(row[11]).strip()
-            if label in bank_labels:
-                try:
-                    last_banks[label] = float(row[12]) if row[12] is not None else 0.0
-                except (TypeError, ValueError):
-                    last_banks[label] = 0.0
-            elif label == '' or label == 'SALDO':
-                pass  # skip blank or next SALDO header
-    wb.close()
-    # Format date
-    fecha_str = ''
-    if last_date:
-        import datetime as _dt
-        if isinstance(last_date, (_dt.date, _dt.datetime)):
-            fecha_str = str(last_date.day) + last_date.strftime('-%b-%Y')
-        else:
-            fecha_str = str(last_date)
-    result = {
-        'fecha': fecha_str,
-        'total': round(last_saldo, 2) if last_saldo else 0.0,
-        'banks': {k: round(v, 2) for k, v in last_banks.items()}
-    }
-    print(f"  SALDO_DIA: fecha={result['fecha']}, total=${result['total']:,.2f}, bancos={list(result['banks'].keys())}")
-    return result
 
 
 def main():
@@ -2100,11 +2075,10 @@ def main():
     clientes_mes, total_mes = extraer_ingresos()
     ing_usd, tc_mes         = extraer_usd_tc()
     fdata                   = extraer_fdata()
-    horas_data, breakdown   = extraer_horas()
+    horas_data, breakdown, resources, cres = extraer_horas()
     costos                  = extraer_costos(tc_mes)
-    cierres, detalle, detalle_rec, vivo = extraer_pasivo()
+    cierres, detalle, vivo  = extraer_pasivo()
     fegr_extra              = extraer_fegr_extra()
-    saldo_dia               = extraer_saldo_dia()
 
     print()
     for m in MESES:
@@ -2115,12 +2089,12 @@ def main():
 
     # Actualizar DATA, FDATA, COSTOS, BREAKDOWN, FCLIENTES, etc. en el HTML
     actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
-                    horas_data, breakdown, costos, fdata, fegr_extra, saldo_dia=saldo_dia)
+                    horas_data, breakdown, resources, cres, costos, fdata, fegr_extra)
 
     # Actualizar sección HISTORIAL PASIVOS (hardcodeada en HTML)
     print("  Aplicando datos de HISTORIAL PASIVOS...")
     with open(OUTPUT_HTML, 'r', encoding='utf-8') as f: html_p = f.read()
-    html_p = actualizar_pasivo_html(html_p, cierres, detalle, detalle_rec, vivo)
+    html_p = actualizar_pasivo_html(html_p, cierres, detalle, vivo)
     with open(OUTPUT_HTML, 'w', encoding='utf-8') as f: f.write(html_p)
     print(f"  OK guardado con pasivos ({len(html_p):,} bytes)")
 
