@@ -1920,7 +1920,29 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append('CRES badge $/día: patron no encontrado')
 
-        print("  FIXES OK:", ", ".join(fixes_ok))
+    # 9) cFilterMes: limpiar search y actualizar estilos inline
+    _CFILTER_MARKER = '// Limpiar search al cambiar mes'
+    if _CFILTER_MARKER not in html:
+        _OLD_CF = 'function cFilterMes(m){'
+        _NEW_CF = ('function cFilterMes(m){\n'
+            '  // Limpiar search al cambiar mes\n'
+            "  const _cs = document.getElementById('costos-search'); if(_cs) _cs.value='';\n"
+            '  // Actualizar estilos inline de botones para que se vean bien\n'
+            "  document.querySelectorAll('.cfilter-btn').forEach(b=>{\n"
+            '    const isActive = b.dataset.m === m;\n'
+            "    b.style.background = isActive ? 'var(--blue)' : '';\n"
+            "    b.style.color = isActive ? '#fff' : '';\n"
+            "    b.style.border = isActive ? 'none' : '';\n"
+            '  });')
+        if _OLD_CF in html:
+            html = html.replace(_OLD_CF, _NEW_CF, 1)
+            fixes_ok.append('cFilterMes: estilos inline y limpia search')
+        else:
+            fixes_fail.append('cFilterMes: patron no encontrado')
+    else:
+        fixes_ok.append('cFilterMes: (ya OK)')
+
+    print("  FIXES OK:", ", ".join(fixes_ok))
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
     return html

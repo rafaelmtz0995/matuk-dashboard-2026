@@ -1744,15 +1744,6 @@ function cFilterMes(m){
     b.style.color = isActive ? '#fff' : '';
     b.style.border = isActive ? 'none' : '';
   });
-  // Limpiar search al cambiar mes
-  const _cs = document.getElementById('costos-search'); if(_cs) _cs.value='';
-  // Actualizar estilos inline de botones
-  document.querySelectorAll('.cfilter-btn').forEach(b=>{
-    const isActive = b.dataset.m === m;
-    b.style.background = isActive ? 'var(--blue)' : '';
-    b.style.color = isActive ? '#fff' : '';
-    b.style.border = isActive ? 'none' : '';
-  });
   cCurrentMes = m;
   document.querySelectorAll('.cfilter-btn').forEach(b => b.classList.toggle('active', b.dataset.m === m));
   // Clear search if active
