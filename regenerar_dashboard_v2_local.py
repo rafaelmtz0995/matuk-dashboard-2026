@@ -30,8 +30,10 @@ CMONTHS = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OC
 MES_LARGO = {
     'ENERO':'ENE','FEBRERO':'FEB','MARZO':'MAR','MARZO ':'MAR','ENERO ':'ENE',
     'ABRIL':'ABR','MAYO':'MAY','JUNIO':'JUN','JULIO':'JUL','AGOSTO':'AGO','SEPTIEMBRE':'SEP',
+    'OCTUBRE':'OCT','NOVIEMBRE':'NOV','DICIEMBRE':'DIC',
     'FEBRERO ':'FEB','ABRIL ':'ABR','MAYO ':'MAY','JUNIO ':'JUN',
     'JULIO ':'JUL','AGOSTO ':'AGO','SEPTIEMBRE':'SEP','SEPTIEMBRE ':'SEP',
+    'OCTUBRE ':'OCT','NOVIEMBRE ':'NOV','DICIEMBRE ':'DIC',
 }
 
 EXCLUIR_ING = {
@@ -245,6 +247,7 @@ def extraer_pasivo():
     MES_STR = {
         'ene-26':'ENE','feb-26':'FEB','mar-26':'MAR','abr-26':'ABR',
         'may-26':'MAY','jun-26':'JUN','jul-26':'JUL','ago-26':'AGO','sep-26':'SEP',
+        'oct-26':'OCT','nov-26':'NOV','dic-26':'DIC',
     }
 
     cierres = {}
@@ -649,6 +652,7 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
                 'perdiem_usd':round(d.get('perdiem_usd',0),2),
                 'usd_total':  round(d['usd_total'],2),
                 'mxn_hrs':    round(d['mxn_hrs'],2),
+                'perdiem_mxn':round(d['mxn_total'] - d['mxn_hrs'],2),
                 'mxn_total':  round(d['mxn_total'],2),
                 'by_cust':    d['by_cust'],
                 'tc':         d.get('tc',0),
@@ -788,12 +792,12 @@ def extraer_fegr_extra():
 
 # ── SALDO ACTUAL DE BANCOS ────────────────────────────────────────────────────
 def extraer_saldo_bancos():
-    """Lee el último saldo de los 5 bancos desde la hoja CONCENTRADO de Flujo de Caja 2026.xlsx.
+    """Lee el último saldo de los 5 bancos desde CONCENTRADO + INVERSION y SALDO RH desde FLUJO detalle.
     Retorna MXN como valor principal y USD como sub-valor para cuentas en dólares.
     banks = {'BBVA Pesos': {mxn:...}, 'BBVA USD': {mxn:..., usd:...}, ...}
     """
     import datetime as _dt
-    print("  Saldo bancos (CONCENTRADO - 5 bancos)...")
+    print("  Saldo bancos (CONCENTRADO - 5 bancos + Inversión + RH)...")
     try:
         wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
     except Exception as e:
@@ -868,6 +872,32 @@ def extraer_saldo_bancos():
     for label_raw, info in BANCO_LABELS.items():
         if label_raw in last_found:
             banks[info['label']] = last_found[label_raw]
+
+    # Leer INVERSION y SALDO RH desde FLUJO detalle (filas 170 y 172)
+    try:
+        ws_flujo = wb['FLUJO detalle']
+        flujo_rows = list(ws_flujo.iter_rows(values_only=True))
+        # Columnas por mes: ENE=(1,2), FEB=(4,5), MAR=(7,8) ... cada 3 cols
+        _FL_MES_COLS = [('ENE',1,2),('FEB',4,5),('MAR',7,8),('ABR',10,11),
+                        ('MAY',13,14),('JUN',16,17),('JUL',19,20),('AGO',22,23),
+                        ('SEP',25,26),('OCT',28,29),('NOV',31,32),('DIC',34,35)]
+        _EXTRA = [('INVERSION', 170, True), ('SALDO RH', 172, True)]
+        for lbl_ex, row_idx, is_usd in _EXTRA:
+            if row_idx < len(flujo_rows):
+                r_ex = flujo_rows[row_idx]
+                last_usd_ex, last_mxn_ex = None, None
+                for _, c_usd, c_mxn in _FL_MES_COLS:
+                    if c_usd < len(r_ex) and isinstance(r_ex[c_usd], (int, float)):
+                        last_usd_ex = round(float(r_ex[c_usd]), 2)
+                    if c_mxn < len(r_ex) and isinstance(r_ex[c_mxn], (int, float)):
+                        last_mxn_ex = round(float(r_ex[c_mxn]), 2)
+                if last_mxn_ex is not None:
+                    entry_ex = {'mxn': last_mxn_ex}
+                    if is_usd and last_usd_ex is not None:
+                        entry_ex['usd'] = last_usd_ex
+                    banks[lbl_ex] = entry_ex
+    except Exception as _ex_err:
+        print(f"  WARN INVERSION/RH desde FLUJO detalle: {_ex_err}")
 
     if total_mxn is None:
         total_mxn = round(sum(v['mxn'] for v in banks.values()), 2)
@@ -1231,14 +1261,24 @@ function buildCostosCharts(){
                         ultimo_mes_flujo = m
                         break
 
-    # Agregar botón del último mes si no existe
-    btn_id_ultimo = 'data-m="' + ultimo_mes_flujo + '"'
-    if btn_id_ultimo not in html:
-        old_ago_btn = "<button class=\"fmes-btn\" data-m=\"AGO\" onclick=\"fSetMes('AGO',this)\">AGO</button>"
-        new_buttons = old_ago_btn + '\n    <button class="fmes-btn" data-m="' + ultimo_mes_flujo + '" onclick="fSetMes(\'' + ultimo_mes_flujo + '\',this)">' + ultimo_mes_flujo + '</button>'
-        if old_ago_btn in html:
-            html = html.replace(old_ago_btn, new_buttons, 1)
-            fixes_ok.append("Boton " + ultimo_mes_flujo + " flujo")
+    # Agregar botón del último mes si no existe (insertar después del mes anterior)
+    btn_fmes_ultimo = 'class="fmes-btn" data-m="' + ultimo_mes_flujo + '"'
+    if btn_fmes_ultimo not in html:
+        _MESES_BTN = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
+        _idx_ult = _MESES_BTN.index(ultimo_mes_flujo) if ultimo_mes_flujo in _MESES_BTN else -1
+        _inserted = False
+        if _idx_ult > 0:
+            prev_mes = _MESES_BTN[_idx_ult - 1]
+            old_prev_btn = f"<button class=\"fmes-btn\" data-m=\"{prev_mes}\" onclick=\"fSetMes('{prev_mes}',this)\">{prev_mes}</button>"
+            new_btn = f"<button class=\"fmes-btn\" data-m=\"{ultimo_mes_flujo}\" onclick=\"fSetMes('{ultimo_mes_flujo}',this)\">{ultimo_mes_flujo}</button>"
+            if old_prev_btn in html:
+                html = html.replace(old_prev_btn, old_prev_btn + '\n    ' + new_btn, 1)
+                fixes_ok.append("Boton " + ultimo_mes_flujo + " flujo")
+                _inserted = True
+        if not _inserted:
+            fixes_fail.append("Boton " + ultimo_mes_flujo + " flujo (prev btn no encontrado)")
+    else:
+        fixes_ok.append("Boton " + ultimo_mes_flujo + " flujo (ya OK)")
 
     # Actualizar textos ENE–??? al rango correcto
     for old_rng in ['ENE–ENE','ENE–FEB','ENE–MAR','ENE–ABR','ENE–MAY','ENE–JUN',
@@ -1334,23 +1374,25 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     elif polyfill_marker in html:
         fixes_ok.append('polyfill roundRect (ya OK)')
 
-    # FIX RS MONTH FILTER: agregar botón SEP en Resumen hero section
-    OLD_RS_BTN = """      <button class="rs-mes-btn" onclick="setRsMes('AGO')" id="rsmb-AGO">AGO</button>
-    </div>
-  </div>
-  <div class="hero-right">"""
-    NEW_RS_BTN = """      <button class="rs-mes-btn" onclick="setRsMes('AGO')" id="rsmb-AGO">AGO</button>
-      <button class="rs-mes-btn" onclick="setRsMes('SEP')" id="rsmb-SEP">SEP</button>
-    </div>
-  </div>
-  <div class="hero-right">"""
-    if OLD_RS_BTN in html:
-        html = html.replace(OLD_RS_BTN, NEW_RS_BTN, 1)
-        fixes_ok.append("RS MONTH FILTER botón SEP")
-    elif 'rsmb-SEP' in html:
-        fixes_ok.append("RS MONTH FILTER botón SEP (ya OK)")
+    # FIX RS MONTH FILTER: agregar botones hasta el último mes con horas
+    _MESES_RS = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
+    _rs_btn_id = f'rsmb-{_ultimo_horas}'
+    if _rs_btn_id not in html:
+        # Buscar el botón del mes anterior al último para insertar después
+        _idx_rs = _MESES_RS.index(_ultimo_horas) if _ultimo_horas in _MESES_RS else -1
+        _rs_inserted = False
+        if _idx_rs > 0:
+            _prev_rs = _MESES_RS[_idx_rs - 1]
+            _old_prev_rs = f"      <button class=\"rs-mes-btn\" onclick=\"setRsMes('{_prev_rs}')\" id=\"rsmb-{_prev_rs}\">{_prev_rs}</button>"
+            _new_rs_btn = f"      <button class=\"rs-mes-btn\" onclick=\"setRsMes('{_ultimo_horas}')\" id=\"rsmb-{_ultimo_horas}\">{_ultimo_horas}</button>"
+            if _old_prev_rs in html:
+                html = html.replace(_old_prev_rs, _old_prev_rs + '\n' + _new_rs_btn, 1)
+                fixes_ok.append(f"RS MONTH FILTER botón {_ultimo_horas}")
+                _rs_inserted = True
+        if not _rs_inserted:
+            fixes_fail.append(f"RS MONTH FILTER botón {_ultimo_horas} (prev btn no encontrado)")
     else:
-        fixes_fail.append("RS MONTH FILTER botón SEP")
+        fixes_ok.append(f"RS MONTH FILTER botón {_ultimo_horas} (ya OK)")
 
     # FIX COSTOS_OTROS_USD: declarar variable antes de que buildCostosTable la use
     # Calcular COSTOS_OTROS_USD = costos_otros MXN / TC por mes
@@ -1729,10 +1771,24 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append('COSTOS-THEAD (patron no encontrado)')
 
-    # FIX: bankDefs — 5 bancos desde CONCENTRADO, con isUSD para mostrar sub-monto en dólares
-    # banks tiene objetos {mxn, usd?} en vez de números simples
-    _BANKDEFS_MARKER_OK = "key:'BBVA USD',   label:'BBVA USD',   isUSD:true"
-    _BANKDEFS_MARKER_OK2 = "key:'BBVA USD',   label:'BBVA USD',   isUSD:true"
+    # FIX: bankDefs — solo 5 bancos en el banner superior oscuro
+    # INVERSION y SALDO RH van UNICAMENTE en la seccion fsaldo (Evolución Saldo Bancos)
+    _BANKDEFS_NEW_5 = """  var bankDefs = [
+    {key:'BBVA Pesos', label:'BBVA Pesos', isUSD:false},
+    {key:'BBVA USD',   label:'BBVA USD',   isUSD:true},
+    {key:'BMX USD',    label:'BMX USD',    isUSD:true},
+    {key:'BMX QRO MN', label:'BMX QRO MN', isUSD:false},
+    {key:'Banamex MN', label:'Banamex MN', isUSD:false}
+  ];"""
+    _BANKDEFS_NEW_7 = """  var bankDefs = [
+    {key:'BBVA Pesos', label:'BBVA Pesos', isUSD:false},
+    {key:'BBVA USD',   label:'BBVA USD',   isUSD:true},
+    {key:'BMX USD',    label:'BMX USD',    isUSD:true},
+    {key:'BMX QRO MN', label:'BMX QRO MN', isUSD:false},
+    {key:'Banamex MN', label:'Banamex MN', isUSD:false},
+    {key:'INVERSION',  label:'Inversión',  isUSD:true},
+    {key:'SALDO RH',   label:'Saldo RH',   isUSD:true}
+  ];"""
     _BANKDEFS_OLD_4_ISMXN = """  var bankDefs = [
     {key:'BBVA Pesos', label:'BBVA Pesos', isMXN:true},
     {key:'BBVA USD',   label:'BBVA USD',   isMXN:false},
@@ -1746,21 +1802,17 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     {key:'BMXQRO MN',     label:'BMX QRO MN', isMXN:true},
     {key:'BANAMEX MN',    label:'Banamex MN', isMXN:true}
   ];"""
-    _BANKDEFS_NEW_5 = """  var bankDefs = [
-    {key:'BBVA Pesos', label:'BBVA Pesos', isUSD:false},
-    {key:'BBVA USD',   label:'BBVA USD',   isUSD:true},
-    {key:'BMX USD',    label:'BMX USD',    isUSD:true},
-    {key:'BMX QRO MN', label:'BMX QRO MN', isUSD:false},
-    {key:'Banamex MN', label:'Banamex MN', isUSD:false}
-  ];"""
-    if _BANKDEFS_MARKER_OK in html:
-        fixes_ok.append('BANKDEFS (ya OK - 5 bancos con isUSD)')
+    if _BANKDEFS_NEW_5 in html:
+        fixes_ok.append('BANKDEFS (ya OK - 5 bancos en banner)')
+    elif _BANKDEFS_NEW_7 in html:
+        html = html.replace(_BANKDEFS_NEW_7, _BANKDEFS_NEW_5, 1)
+        fixes_ok.append('BANKDEFS revertido (7->5 bancos, Inversion+RH van en fsaldo)')
     elif _BANKDEFS_OLD_4_ISMXN in html:
         html = html.replace(_BANKDEFS_OLD_4_ISMXN, _BANKDEFS_NEW_5, 1)
         fixes_ok.append('BANKDEFS actualizado (4->5 bancos con isUSD)')
     elif _BANKDEFS_OLD_5_VSBVA in html:
         html = html.replace(_BANKDEFS_OLD_5_VSBVA, _BANKDEFS_NEW_5, 1)
-        fixes_ok.append('BANKDEFS actualizado (5 bancos Vs->/display con isUSD)')
+        fixes_ok.append('BANKDEFS actualizado (5 Vs->5 bancos con isUSD)')
     else:
         fixes_fail.append('BANKDEFS (patron no encontrado)')
 
@@ -1801,14 +1853,404 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append('CARDS-RENDER (patron no encontrado)')
 
-    # FIX: Grid de bancos — 5 columnas
+    # FIX: Grid de bancos — 5 columnas en banner superior (INVERSION y RH van en fsaldo)
     _GRID_OLD_4 = 'id="flujo-saldo-banks" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"'
     _GRID_5 = 'id="flujo-saldo-banks" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px"'
+    _GRID_7 = 'id="flujo-saldo-banks" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px"'
+    _GRID_AFILL = 'id="flujo-saldo-banks" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px"'
     if _GRID_5 in html:
         fixes_ok.append('BANKS-GRID (ya OK - 5 cols)')
+    elif _GRID_7 in html:
+        html = html.replace(_GRID_7, _GRID_5, 1)
+        fixes_ok.append('BANKS-GRID revertido (7->5 cols)')
+    elif _GRID_AFILL in html:
+        html = html.replace(_GRID_AFILL, _GRID_5, 1)
+        fixes_ok.append('BANKS-GRID actualizado (auto-fill->5 cols)')
     elif _GRID_OLD_4 in html:
         html = html.replace(_GRID_OLD_4, _GRID_5, 1)
         fixes_ok.append('BANKS-GRID actualizado (4->5 cols)')
+
+    # FIX FSALDO: 6 tarjetas en Evolución Saldo Bancos, USD pequeño en TODAS las cuentas USD
+    # Estado final: BBVA USD, BMX USD, BBVA PESOS, BMX MXN, INVERSIÓN, SALDO RH
+    # Todas las cuentas USD muestran el monto en dólares en pequeño debajo del MXN
+    # Estado 1 (original 4 bancos sin inversion/RH):
+    _FSALDO_OLD = """    <div class="fsaldo-ctx">
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA USD</div><div class="fsaldo-bval" id="fb-bbvausd"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BMX USD</div><div class="fsaldo-bval" id="fb-bmxusd"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA PESOS</div><div class="fsaldo-bval" id="fb-bbvamn"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BMX MXN</div><div class="fsaldo-bval" id="fb-bmxmn"></div></div>
+    </div>"""
+    # Estado 2 (6 bancos pero sin USD sub-divs en BBVA USD / BMX USD):
+    _FSALDO_6BANKS_NOUSD = """    <div class="fsaldo-ctx">
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA USD</div><div class="fsaldo-bval" id="fb-bbvausd"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BMX USD</div><div class="fsaldo-bval" id="fb-bmxusd"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA PESOS</div><div class="fsaldo-bval" id="fb-bbvamn"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BMX MXN</div><div class="fsaldo-bval" id="fb-bmxmn"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">INVERSIÓN</div><div class="fsaldo-bval" id="fb-inversion"></div><div class="fsaldo-busd" id="fb-inversion-usd"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">SALDO RH</div><div class="fsaldo-bval" id="fb-rh"></div><div class="fsaldo-busd" id="fb-rh-usd"></div></div>
+    </div>"""
+    # Estado final (6 bancos con USD sub-divs en TODAS las cuentas USD):
+    _FSALDO_NEW = """    <div class="fsaldo-ctx">
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA USD</div><div class="fsaldo-bval" id="fb-bbvausd"></div><div class="fsaldo-busd" id="fb-bbvausd-usd"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BMX USD</div><div class="fsaldo-bval" id="fb-bmxusd"></div><div class="fsaldo-busd" id="fb-bmxusd-usd"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA PESOS</div><div class="fsaldo-bval" id="fb-bbvamn"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BMX MXN</div><div class="fsaldo-bval" id="fb-bmxmn"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">INVERSIÓN</div><div class="fsaldo-bval" id="fb-inversion"></div><div class="fsaldo-busd" id="fb-inversion-usd"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">SALDO RH</div><div class="fsaldo-bval" id="fb-rh"></div><div class="fsaldo-busd" id="fb-rh-usd"></div></div>
+    </div>"""
+    _FSALDO_OK_MARKER = 'id="fb-bbvausd-usd"'  # estado final: todas USD con sub-div
+    # CSS: grid 3 columnas para 6 tarjetas
+    _FSALDO_CSS_OLD2 = '#view-flujo .fsaldo-ctx{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:10px}'
+    _FSALDO_CSS_NEW3 = '#view-flujo .fsaldo-ctx{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}'
+    _FSALDO_CSS_BUSD = '#view-flujo .fsaldo-busd{font-size:.55rem;color:#64748B;margin-top:1px}'
+    # JS desde cero (sin inversion/RH):
+    _FSALDO_JS_OLD = "    el = document.getElementById('fb-bmxusd'); if(el) el.textContent = fmt(b['BMX USD']);\n  } else {"
+    _FSALDO_JS_NEW = """    el = document.getElementById('fb-bmxusd'); if(el) el.textContent = fmt(b['BMX USD']);
+    var fmtUSD2=function(entry){if(!entry||typeof entry!=='object')return '';var u=entry.usd||0;if(!u)return '';return u>=1e6?'USD '+(u/1e6).toFixed(2)+'M':u>=1e3?'USD '+(u/1e3).toFixed(0)+'K':'USD '+Math.round(u);};
+    el=document.getElementById('fb-bbvausd-usd');if(el)el.textContent=fmtUSD2(b['BBVA USD']);
+    el=document.getElementById('fb-bmxusd-usd');if(el)el.textContent=fmtUSD2(b['BMX USD']);
+    el=document.getElementById('fb-inversion');if(el)el.textContent=fmt(b['INVERSION']);
+    el=document.getElementById('fb-inversion-usd');if(el)el.textContent=fmtUSD2(b['INVERSION']);
+    el=document.getElementById('fb-rh');if(el)el.textContent=fmt(b['SALDO RH']);
+    el=document.getElementById('fb-rh-usd');if(el)el.textContent=fmtUSD2(b['SALDO RH']);
+  } else {"""
+    # JS intermedio (ya tiene fmtUSD2+inversion+rh, falta bbvausd-usd y bmxusd-usd):
+    _FSALDO_JS_INT_OLD = """    var fmtUSD2=function(entry){if(!entry||typeof entry!=='object')return '';var u=entry.usd||0;if(!u)return '';return u>=1e6?'USD '+(u/1e6).toFixed(2)+'M':u>=1e3?'USD '+(u/1e3).toFixed(0)+'K':'USD '+Math.round(u);};
+    el=document.getElementById('fb-inversion');if(el)el.textContent=fmt(b['INVERSION']);"""
+    _FSALDO_JS_INT_NEW = """    var fmtUSD2=function(entry){if(!entry||typeof entry!=='object')return '';var u=entry.usd||0;if(!u)return '';return u>=1e6?'USD '+(u/1e6).toFixed(2)+'M':u>=1e3?'USD '+(u/1e3).toFixed(0)+'K':'USD '+Math.round(u);};
+    el=document.getElementById('fb-bbvausd-usd');if(el)el.textContent=fmtUSD2(b['BBVA USD']);
+    el=document.getElementById('fb-bmxusd-usd');if(el)el.textContent=fmtUSD2(b['BMX USD']);
+    el=document.getElementById('fb-inversion');if(el)el.textContent=fmt(b['INVERSION']);"""
+    if _FSALDO_OK_MARKER in html:
+        fixes_ok.append('FSALDO (ya OK - todas USD con sub-monto)')
+    elif _FSALDO_6BANKS_NOUSD in html:
+        # Estado 2: tiene 6 bancos pero sin USD sub-divs para BBVA/BMX
+        html = html.replace(_FSALDO_6BANKS_NOUSD, _FSALDO_NEW, 1)
+        fixes_ok.append('FSALDO-USD: agregado USD pequeño a BBVA USD y BMX USD')
+        # JS intermedio: agregar lineas de bbvausd-usd y bmxusd-usd
+        if _FSALDO_JS_INT_OLD in html:
+            html = html.replace(_FSALDO_JS_INT_OLD, _FSALDO_JS_INT_NEW, 1)
+            fixes_ok.append('FSALDO-JS-USD: fb-bbvausd-usd y fb-bmxusd-usd agregados')
+        else:
+            fixes_fail.append('FSALDO-JS-USD (patron intermedio no encontrado)')
+    else:
+        # Estado 1: HTML original sin inversion/RH ni USD sub-divs
+        if _FSALDO_OLD in html:
+            html = html.replace(_FSALDO_OLD, _FSALDO_NEW, 1)
+            fixes_ok.append('FSALDO: 6 tarjetas con USD pequeño agregadas')
+        else:
+            fixes_fail.append('FSALDO (patron HTML no encontrado)')
+        # CSS grid 2->3
+        if _FSALDO_CSS_NEW3 in html:
+            fixes_ok.append('FSALDO-CSS (ya OK - 3 cols)')
+        elif _FSALDO_CSS_OLD2 in html:
+            html = html.replace(_FSALDO_CSS_OLD2, _FSALDO_CSS_NEW3 + '\n' + _FSALDO_CSS_BUSD, 1)
+            fixes_ok.append('FSALDO-CSS actualizado (2->3 cols + busd)')
+        else:
+            fixes_fail.append('FSALDO-CSS (patron no encontrado)')
+        # JS desde cero
+        if _FSALDO_JS_OLD in html:
+            html = html.replace(_FSALDO_JS_OLD, _FSALDO_JS_NEW, 1)
+            fixes_ok.append('FSALDO-JS: todos los bancos USD con sub-monto')
+        else:
+            fixes_fail.append('FSALDO-JS (patron no encontrado)')
+
+    # FIX SALDO-REAL-PROY: Gráfica naranja con línea real histórica + proyección 3 meses
+    # Reemplaza fRenderLineSaldo (azul simple) con versión naranja con proyección
+    _SALDO_PROY_OK = '// fRenderLineSaldo_v2'
+    _SALDO_PROY_UNIQUE = '  const W=400, H=110;\n  const padL=36, padR=10, padT=12, padB=20;'
+    _SALDO_PROY_NEW_FUNC = """function fRenderLineSaldo(){ // fRenderLineSaldo_v2
+  var svg = document.getElementById('f-line');
+  if(!svg) return;
+  var ALL_MONTHS = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+  var W=420, H=150;
+  var padL=42, padR=16, padT=30, padB=24;
+  // Datos reales: meses con saldo > 0
+  var allData = ALL_MONTHS.map(function(m){
+    var d = FDATA[m];
+    var v = d ? fGet(d,'saldo') : 0;
+    return {m:m, v:v>0?v:null};
+  });
+  var realData = allData.filter(function(d){ return d.v!==null; });
+  if(!realData.length) return;
+  var lastRealM = realData[realData.length-1].m;
+  var lastRealIdx = ALL_MONTHS.indexOf(lastRealM);
+  // Proyección: promedio flujo neto últimos 3 meses
+  var baseSaldo = realData[realData.length-1].v;
+  var last3 = realData.slice(-3);
+  var flows = last3.map(function(d){
+    var fd = FDATA[d.m];
+    return fd ? (fGet(fd,'ing') - fGet(fd,'egr')) : 0;
+  });
+  var avgFlow = flows.reduce(function(a,b){return a+b;},0) / (flows.length||1);
+  var proj = [];
+  for(var n=1; n<=3; n++){
+    var mi = lastRealIdx+n;
+    if(mi < ALL_MONTHS.length) proj.push({m:ALL_MONTHS[mi], v:baseSaldo+avgFlow*n, n:n});
+  }
+  // Escala
+  var allVals = realData.map(function(d){return d.v;}).concat(proj.map(function(d){return d.v;}));
+  var minV = Math.min.apply(null,allVals)*0.92;
+  var maxV = Math.max.apply(null,allVals)*1.06;
+  var range = maxV-minV||1;
+  function cX(i){ return padL+i*(W-padL-padR)/11; }
+  function cY(v){ return H-padB-(v-minV)/range*(H-padT-padB); }
+  function fmtS(v){ return v>=1e6?'$'+(v/1e6).toFixed(1)+'M':'$'+(v/1e3).toFixed(0)+'K'; }
+  function fmtFull(v){ return '$'+Math.round(v).toLocaleString('es-MX'); }
+  var firstIdx = ALL_MONTHS.indexOf(realData[0].m);
+  var areaPath = 'M'+cX(firstIdx)+','+(H-padB)+' '+
+    realData.map(function(d){ return 'L'+cX(ALL_MONTHS.indexOf(d.m))+','+cY(d.v); }).join(' ')+
+    ' L'+cX(lastRealIdx)+','+(H-padB)+' Z';
+  var realPts = realData.map(function(d){ return cX(ALL_MONTHS.indexOf(d.m))+','+cY(d.v); }).join(' ');
+  var projCoords = [realData[realData.length-1]].concat(proj);
+  var projPts = projCoords.map(function(d){ return cX(ALL_MONTHS.indexOf(d.m))+','+cY(d.v); }).join(' ');
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  var parts = [];
+  parts.push('<defs><linearGradient id="fgrad2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#E8A020" stop-opacity=".18"/><stop offset="100%" stop-color="#E8A020" stop-opacity="0"/></linearGradient></defs>');
+  // Leyenda
+  parts.push('<line x1="'+(W-126)+'" y1="11" x2="'+(W-114)+'" y2="11" stroke="#E8A020" stroke-width="2"/>');
+  parts.push('<circle cx="'+(W-120)+'" cy="11" r="2.5" fill="#E8A020"/>');
+  parts.push('<text x="'+(W-110)+'" y="14.5" font-size="7.5" fill="#64748B" font-weight="600">REAL</text>');
+  parts.push('<line x1="'+(W-70)+'" y1="11" x2="'+(W-58)+'" y2="11" stroke="#E8A020" stroke-width="1.8" stroke-dasharray="4,3"/>');
+  parts.push('<text x="'+(W-54)+'" y="14.5" font-size="7.5" fill="#64748B" font-weight="600">PROYECCIÓN</text>');
+  // Área bajo la curva real
+  parts.push('<path d="'+areaPath+'" fill="url(#fgrad2)"/>');
+  // Línea real
+  parts.push('<polyline points="'+realPts+'" fill="none" stroke="#E8A020" stroke-width="2.2"/>');
+  // Línea proyección
+  if(proj.length) parts.push('<polyline points="'+projPts+'" fill="none" stroke="#E8A020" stroke-width="1.8" stroke-dasharray="5,4" opacity=".7"/>');
+  // Etiquetas eje X (todos los 12 meses)
+  ALL_MONTHS.forEach(function(m,i){
+    var isReal=allData[i].v!==null;
+    var isProj=proj.some(function(p){return p.m===m;});
+    var active=fMes===m;
+    parts.push('<text x="'+cX(i)+'" y="'+(H-padB+12)+'" text-anchor="middle" font-size="7" fill="'+(active?'#0D1F3C':isReal||isProj?'#64748B':'#CBD5E1')+'" font-weight="'+(active?'bold':'400')+'">'+m+'</text>');
+  });
+  // Puntos datos reales
+  realData.forEach(function(d,idx){
+    var i=ALL_MONTHS.indexOf(d.m), x=cX(i), y=cY(d.v);
+    var isActive=fMes===d.m;
+    var showLbl=idx===0||idx===realData.length-1||isActive;
+    parts.push('<circle class="fsaldo-dot" data-m="'+d.m+'" data-v="'+Math.round(d.v)+'" cx="'+x+'" cy="'+y+'" r="'+(isActive?4.5:3)+'" fill="#E8A020" stroke="#fff" stroke-width="1.5"/>');
+    if(showLbl) parts.push('<text x="'+x+'" y="'+(y-8)+'" text-anchor="middle" font-size="7" fill="'+(isActive?'#B45309':'#E8A020')+'" font-weight="'+(isActive?'bold':'400')+'">'+fmtS(d.v)+'</text>');
+  });
+  // Puntos proyección
+  proj.forEach(function(d){
+    var i=ALL_MONTHS.indexOf(d.m), x=cX(i), y=cY(d.v);
+    parts.push('<circle class="fsaldo-dot" data-m="'+d.m+'" data-v="'+Math.round(d.v)+'" data-proj="1" cx="'+x+'" cy="'+y+'" r="3" fill="#fff" stroke="#E8A020" stroke-width="1.8"/>');
+    parts.push('<text x="'+x+'" y="'+(y-8)+'" text-anchor="middle" font-size="7" fill="#E8A020" opacity=".8">'+fmtS(d.v)+'</text>');
+  });
+  svg.innerHTML = parts.join('');
+  // Tooltip
+  var tip = document.getElementById('f-saldo-tip');
+  if(!tip){
+    tip = document.createElement('div');
+    tip.id = 'f-saldo-tip';
+    tip.style.cssText = 'display:none;position:fixed;background:#1E293B;color:#F1F5F9;padding:5px 10px;border-radius:8px;font-size:.72rem;white-space:nowrap;z-index:30;border:1px solid #334155;pointer-events:none';
+    document.body.appendChild(tip);
+  }
+  svg.querySelectorAll('.fsaldo-dot').forEach(function(el){
+    var m=el.getAttribute('data-m');
+    var v=parseInt(el.getAttribute('data-v'));
+    var isProj=el.getAttribute('data-proj')==='1';
+    el.addEventListener('mouseenter',function(e){
+      tip.innerHTML='<strong style="color:#E8A020">'+(isProj?'Proyección ':'Saldo ')+m+'</strong>: '+fmtFull(v);
+      tip.style.display='block';
+      tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY-36)+'px';
+    });
+    el.addEventListener('mousemove',function(e){
+      tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY-36)+'px';
+    });
+    el.addEventListener('mouseleave',function(){ tip.style.display='none'; });
+  });
+}"""
+
+    if _SALDO_PROY_OK in html:
+        fixes_ok.append('SALDO-REAL-PROY (ya OK - grafica naranja v2)')
+    elif _SALDO_PROY_UNIQUE in html:
+        # Reemplazar función completa buscando sus límites
+        _func_start = 'function fRenderLineSaldo(){'
+        _func_end_marker = '}\n\n\nvar SALDO_DIA'
+        i_start = html.find(_func_start)
+        i_end = html.find(_func_end_marker, i_start)
+        if i_start >= 0 and i_end >= 0:
+            old_func = html[i_start:i_end+2]  # incluye "}\n"
+            html = html[:i_start] + _SALDO_PROY_NEW_FUNC + html[i_start+len(old_func):]
+            fixes_ok.append('SALDO-REAL-PROY: grafica naranja + proyeccion 3 meses')
+        else:
+            fixes_fail.append('SALDO-REAL-PROY (limites de funcion no encontrados)')
+    else:
+        fixes_fail.append('SALDO-REAL-PROY (firma de funcion no reconocida)')
+
+    # Aumentar altura SVG de la gráfica de saldo para que quepa la leyenda
+    _FLINE_CSS_OLD = '#view-flujo svg.fline{width:100%;height:130px;display:block}'
+    _FLINE_CSS_NEW = '#view-flujo svg.fline{width:100%;height:150px;display:block}'
+    if _FLINE_CSS_NEW in html:
+        fixes_ok.append('FLINE-HEIGHT (ya OK - 150px)')
+    elif _FLINE_CSS_OLD in html:
+        html = html.replace(_FLINE_CSS_OLD, _FLINE_CSS_NEW, 1)
+        fixes_ok.append('FLINE-HEIGHT: 130->150px para grafica con leyenda')
+    else:
+        fixes_fail.append('FLINE-HEIGHT (patron CSS no encontrado)')
+
+    # FIX HERO-CHART: Reemplazar foto electricista en hero-right con gráfica REAL+PROYECCIÓN
+    # Buscar hero-right DENTRO de view-flujo (no el primero del documento)
+    _HERO_CHART_OK_MARKER = '<!-- HERO-CHART-OK -->'
+    _FLINE_OLD_SVG = '<svg class="fline" id="f-line" viewBox="0 0 400 110"></svg>'
+    _FLINE_OLD_HIDDEN = '<svg class="fline" id="f-line-2" viewBox="0 0 420 150" style="width:100%;height:150px;display:block"></svg>'
+    _HERO_RIGHT_NEW = (
+        '<div class="hero-right" style="flex-direction:column;padding:32px 40px;gap:0;background:var(--navy)">'
+        '<!-- HERO-CHART-OK -->'
+        '\n  <div style="color:rgba(255,255,255,.5);font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px">Saldo en Bancos</div>'
+        '\n  <div style="color:#fff;font-size:.95rem;font-weight:800;letter-spacing:.05em;margin-bottom:16px">REAL &nbsp;<span style="color:#E8A020">——</span>&nbsp; PROYECCIÓN</div>'
+        '\n  <svg class="fline" id="f-line" viewBox="0 0 420 150" style="width:100%;height:220px;display:block"></svg>'
+        '\n  <div style="margin-top:14px;padding:10px 14px;background:rgba(255,255,255,.06);border-left:3px solid #E8A020;border-radius:4px">'
+        '\n    <div style="font-size:.6rem;font-weight:700;color:#E8A020;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Fórmula de Proyección</div>'
+        '\n    <div style="font-size:.64rem;color:rgba(255,255,255,.75);line-height:1.55">'
+        '\n      Saldo<sub>n</sub> = Saldo<sub>base</sub> + Avg(Flujo Neto últimos 3 meses) × n<br/>'
+        '\n      <span style="color:rgba(255,255,255,.45)">Flujo Neto = Ingresos Operativos − Egresos Operativos (MXN)</span>'
+        '\n    </div>'
+        '\n  </div>'
+        '\n</div>'
+    )
+    if _HERO_CHART_OK_MARKER in html:
+        fixes_ok.append('HERO-CHART (ya OK - grafica en hero flujo)')
+    else:
+        # Buscar hero-right estrictamente dentro de view-flujo
+        _vf_pos = html.find('id="view-flujo"')
+        _hr_start = html.find('<div class="hero-right">', _vf_pos) if _vf_pos >= 0 else -1
+        if _hr_start < 0:
+            fixes_fail.append('HERO-CHART (hero-right dentro de view-flujo no encontrado)')
+        else:
+            _pos = _hr_start + len('<div class="hero-right">')
+            _depth = 1; _i = _pos; _hr_end = -1
+            while _i < len(html) and _depth > 0:
+                if html[_i:_i+5] == '<div ':
+                    _depth += 1; _i += 5
+                elif html[_i:_i+6] == '</div>':
+                    _depth -= 1
+                    if _depth == 0:
+                        _hr_end = _i + 6; break
+                    _i += 6
+                else:
+                    _i += 1
+            if _hr_end > 0:
+                html = html[:_hr_start] + _HERO_RIGHT_NEW + html[_hr_end:]
+                html = html.replace(_FLINE_OLD_SVG, _FLINE_OLD_HIDDEN, 1)
+                fixes_ok.append('HERO-CHART: grafica REAL+PROYECCION en flujo (no resumen)')
+            else:
+                fixes_fail.append('HERO-CHART (no se pudo cerrar hero-right div en view-flujo)')
+
+    # FIX FLINE-SIMPLE: Gráfica azul con tooltips en Evolución Saldo Bancos (f-line-2)
+    _SIMPLE_OK = 'function fRenderLineSaldoSimple(){// v4'
+    _SIMPLE_FUNC = (
+        '\nfunction fRenderLineSaldoSimple(){// v4\n'
+        '  var svg = document.getElementById(\'f-line-2\');\n'
+        '  if(!svg) return;\n'
+        '  var ALL_MONTHS = [\'ENE\',\'FEB\',\'MAR\',\'ABR\',\'MAY\',\'JUN\',\'JUL\',\'AGO\',\'SEP\',\'OCT\',\'NOV\',\'DIC\'];\n'
+        '  var W=400, H=110;\n'
+        '  var padL=36, padR=10, padT=12, padB=20;\n'
+        '  var data = ALL_MONTHS.map(function(m){\n'
+        '    var d = FDATA[m];\n'
+        '    var v = d ? fGet(d,\'saldo\') : 0;\n'
+        '    return {m:m, v:v>0?v:null};\n'
+        '  }).filter(function(d){ return d.v!==null; });\n'
+        '  if(!data.length) return;\n'
+        '  var vals = data.map(function(d){return d.v;});\n'
+        '  var minV = Math.min.apply(null,vals)*0.92;\n'
+        '  var maxV = Math.max.apply(null,vals)*1.06;\n'
+        '  var range = maxV-minV||1;\n'
+        '  var n = data.length;\n'
+        '  function cX(i){ return padL+i*(W-padL-padR)/(n-1||1); }\n'
+        '  function cY(v){ return H-padB-(v-minV)/range*(H-padT-padB); }\n'
+        '  function fmtS(v){ return v>=1e6?\'$\'+(v/1e6).toFixed(2)+\'M\':\'$\'+(v/1e3).toFixed(0)+\'K\'; }\n'
+        '  svg.setAttribute(\'viewBox\',\'0 0 \'+W+\' \'+H);\n'
+        '  var pts = data.map(function(d,i){ return cX(i)+\',\'+cY(d.v); }).join(\' \');\n'
+        '  var areaPath = \'M\'+cX(0)+\',\'+(H-padB)+\' \'+\n'
+        '    data.map(function(d,i){ return \'L\'+cX(i)+\',\'+cY(d.v); }).join(\' \')+\n'
+        '    \' L\'+cX(n-1)+\',\'+(H-padB)+\' Z\';\n'
+        '  var parts = [];\n'
+        '  parts.push(\'<defs><linearGradient id="fgrad2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3B82F6" stop-opacity=".18"/><stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/></linearGradient></defs>\');\n'
+        '  parts.push(\'<path d="\'+areaPath+\'" fill="url(#fgrad2)"/>\');\n'
+        '  parts.push(\'<polyline points="\'+pts+\'" fill="none" stroke="#3B82F6" stroke-width="2"/>\');\n'
+        '  data.forEach(function(d,i){\n'
+        '    var x=cX(i), y=cY(d.v);\n'
+        '    var showLbl = i===0 || i===n-1 || fMes===d.m;\n'
+        '    var lbl = fmtS(d.v);\n'
+        '    parts.push(\'<g style="cursor:pointer">\');\n'
+        '    parts.push(\'<title>\'+d.m+\': \'+lbl+\'</title>\');\n'
+        '    parts.push(\'<circle cx="\'+x+\'" cy="\'+y+\'" r="9" fill="transparent"/>\');\n'
+        '    parts.push(\'<circle cx="\'+x+\'" cy="\'+y+\'" r="\'+(fMes===d.m?4:2.5)+\'" fill="#3B82F6" stroke="#fff" stroke-width="1.2" style="pointer-events:none"/>\');\n'
+        '    if(showLbl) parts.push(\'<text x="\'+x+\'" y="\'+(y-7)+\'" text-anchor="middle" font-size="8.5" fill="#1D4ED8" font-weight="600" style="pointer-events:none">\'+lbl+\'</text>\');\n'
+        '    parts.push(\'<text x="\'+x+\'" y="\'+(H-padB+11)+\'" text-anchor="middle" font-size="7.5" fill="\'+(fMes===d.m?\'#1D4ED8\':\'#6B7280\')+\'" style="pointer-events:none">\'+d.m+\'</text>\');\n'
+        '    parts.push(\'</g>\');\n'
+        '  });\n'
+        '  svg.innerHTML = parts.join(\'\');\n'
+        '}\n'
+    )
+    _SIMPLE_CALL_OLD = '  fRenderLineSaldo();\n}'
+    _SIMPLE_CALL_NEW = '  fRenderLineSaldo();\n  fRenderLineSaldoSimple();\n}'
+    _FLINE2_HIDDEN = '<svg class="fline" id="f-line-2" viewBox="0 0 400 110" style="display:none"></svg>'
+    _FLINE2_VISIBLE = '<svg class="fline" id="f-line-2" viewBox="0 0 420 150" style="width:100%;height:150px;display:block"></svg>'
+    if _SIMPLE_OK in html:
+        fixes_ok.append('FLINE-SIMPLE (ya OK v4 - grafica azul tooltips)')
+        # Limpiar residuo huerfano de versiones anteriores (v6 tail code fuera de funcion)
+        _v6_orphan = """  svg.querySelectorAll('g[data-tip]').forEach(function(g){
+    g.addEventListener('mouseenter',function(e){
+      _tip.textContent=g.getAttribute('data-tip');
+      _tip.style.display='block';
+      _tip.style.left=(e.clientX+14)+'px';
+      _tip.style.top=(e.clientY-36)+'px';
+    });
+    g.addEventListener('mousemove',function(e){
+      _tip.style.left=(e.clientX+14)+'px';
+      _tip.style.top=(e.clientY-36)+'px';
+    });
+    g.addEventListener('mouseleave',function(){_tip.style.display='none';});
+  });
+}"""
+        if _v6_orphan in html:
+            html = html.replace(_v6_orphan, '', 1)
+            fixes_ok.append('FLINE-SIMPLE: residuo v6 huerfano eliminado')
+    elif 'function fRenderLineSaldoSimple(){' in html:
+        _old_fn_s = html.find('\nfunction fRenderLineSaldoSimple(){')
+        _old_fn_r = html.find("svg.innerHTML = parts.join('');", _old_fn_s)
+        _old_fn_e = html.find('}', _old_fn_r) + 2
+        html = html[:_old_fn_s] + _SIMPLE_FUNC + html[_old_fn_e:]
+        fixes_ok.append('FLINE-SIMPLE: actualizado a v4 (tooltips)')
+    else:
+        _sd_pos = html.find('\n\nvar SALDO_DIA')
+        if _sd_pos > 0:
+            html = html[:_sd_pos] + _SIMPLE_FUNC + html[_sd_pos:]
+            html = html.replace(_SIMPLE_CALL_OLD, _SIMPLE_CALL_NEW, 1)
+            html = html.replace(_FLINE2_HIDDEN, _FLINE2_VISIBLE, 1)
+            fixes_ok.append('FLINE-SIMPLE: grafica azul v4 tooltips insertada')
+        else:
+            fixes_fail.append('FLINE-SIMPLE (var SALDO_DIA no encontrado)')
+
+
+    # FIX RESUMEN-HERO-IMG: Restaurar imagen Matuk Automation en hero de Resumen Ejecutivo
+    _RESUMEN_IMG_OK = 'alt="Matuk Automation"'
+    if _RESUMEN_IMG_OK in html:
+        fixes_ok.append('RESUMEN-HERO-IMG (ya OK - imagen Matuk en Resumen)')
+    else:
+        import base64 as _b64, os as _os
+        _hero_img_path = _os.path.join(_os.path.dirname(__file__), 'matuk_hero.png')
+        if _os.path.exists(_hero_img_path):
+            with open(_hero_img_path, 'rb') as _f:
+                _img_b64 = _b64.b64encode(_f.read()).decode()
+            _new_img = f'<img src="data:image/png;base64,{_img_b64}" alt="Matuk Automation" style="width:100%;height:100%;object-fit:cover;display:block"/>'
+            _vr_pos = html.find('id="view-resumen"')
+            _hr_pos = html.find('<div class="hero-right">', _vr_pos)
+            _img_start = html.find('<img ', _hr_pos)
+            _img_end = html.find('>', _img_start) + 1
+            if _img_start > 0 and _img_end > _img_start and _img_end < _hr_pos + 5000:
+                html = html[:_img_start] + _new_img + html[_img_end:]
+                fixes_ok.append('RESUMEN-HERO-IMG: imagen Matuk Automation restaurada')
+            else:
+                fixes_fail.append('RESUMEN-HERO-IMG (img no encontrado en hero-right resumen)')
+        else:
+            fixes_fail.append('RESUMEN-HERO-IMG (matuk_hero.png no encontrado junto al script)')
 
     # FIX COSTOS-SECTION-DIV: falta </div> de cierre del <div class="section"> de TABLA MENSUAL.
     # Sin este cierre, view-flujo queda anidado dentro de view-costos y aparece en blanco.
@@ -1966,7 +2408,8 @@ def actualizar_pasivo_html(html, cierres, detalle, vivo):
     # 2. Actualizar KPI cards del cierre vivo
     if vivo:
         m_vivo = {'ene-26':'ENE','feb-26':'FEB','mar-26':'MAR','abr-26':'ABR',
-                  'may-26':'MAY','jun-26':'JUN','jul-26':'JUL','ago-26':'AGO','sep-26':'SEP'}.get(vivo)
+                  'may-26':'MAY','jun-26':'JUN','jul-26':'JUL','ago-26':'AGO','sep-26':'SEP',
+                  'oct-26':'OCT','nov-26':'NOV','dic-26':'DIC'}.get(vivo)
         if m_vivo and m_vivo in cierres:
             d = cierres[m_vivo]
             n_clientes = len(detalle.get(m_vivo, []))
@@ -1992,11 +2435,13 @@ def actualizar_pasivo_html(html, cierres, detalle, vivo):
             html = re.sub(r'(Con horas pendientes )[a-z]{3}-\d{2,4}', f'Con horas pendientes {vivo}', html)
 
     # 3. Reconstruir tabla CIERRES HISTÓRICOS
-    orden_meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP']
+    orden_meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
     MES_LABEL = {'ENE':'ene-26','FEB':'feb-26','MAR':'mar-26','ABR':'abr-26',
-                 'MAY':'may-26','JUN':'jun-26','JUL':'jul-26','AGO':'ago-26','SEP':'sep-26'}
+                 'MAY':'may-26','JUN':'jun-26','JUL':'jul-26','AGO':'ago-26','SEP':'sep-26',
+                 'OCT':'oct-26','NOV':'nov-26','DIC':'dic-26'}
     m_vivo_code = {'ene-26':'ENE','feb-26':'FEB','mar-26':'MAR','abr-26':'ABR',
-                   'may-26':'MAY','jun-26':'JUN','jul-26':'JUL','ago-26':'AGO','sep-26':'SEP'}.get(vivo,'')
+                   'may-26':'MAY','jun-26':'JUN','jul-26':'JUL','ago-26':'AGO','sep-26':'SEP',
+                   'oct-26':'OCT','nov-26':'NOV','dic-26':'DIC'}.get(vivo,'')
 
     rows_html = ''
     alt = False
@@ -2190,7 +2635,7 @@ def main():
     ORDEN_M = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
     ultimo_real = 'AGO'
     for _m in reversed(ORDEN_M):
-        if _m in fdata and (fdata[_m].get('ing_mx',0) or 0) > 0:
+        if (_m in fdata and (fdata[_m].get('ing_mx',0) or 0) > 0) or (_m in horas_data and (horas_data[_m].get('hours',0) or 0) > 0):
             ultimo_real = _m
             break
     html_fix = aplicar_fixes(html_fix, ultimo_mes_real=ultimo_real, fegr_extra=fegr_extra, tc_mes=tc_mes)

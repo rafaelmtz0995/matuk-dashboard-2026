@@ -2862,20 +2862,7 @@ function fRenderLineSaldoSimple(){// v4
   });
   svg.innerHTML = parts.join('');
 }
-  svg.querySelectorAll('g[data-tip]').forEach(function(g){
-    g.addEventListener('mouseenter',function(e){
-      _tip.textContent=g.getAttribute('data-tip');
-      _tip.style.display='block';
-      _tip.style.left=(e.clientX+14)+'px';
-      _tip.style.top=(e.clientY-36)+'px';
-    });
-    g.addEventListener('mousemove',function(e){
-      _tip.style.left=(e.clientX+14)+'px';
-      _tip.style.top=(e.clientY-36)+'px';
-    });
-    g.addEventListener('mouseleave',function(){_tip.style.display='none';});
-  });
-}
+
 
 
 
