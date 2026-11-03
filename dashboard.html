@@ -1485,7 +1485,7 @@ function _getCostosSubItems(mes){
   } else {
     var cresMes2 = (typeof CRES!=='undefined' ? CRES[mes] : null) || [];
   subItems = d.by_cust.map(function(c){
-    var perdiem_mxn = cresMes2.filter(function(e){ return e.c===c.c && (e.mxn_hrs||0)>0; })
+    var perdiem_mxn = cresMes2.filter(function(e){ return e.c===c.c && (e.mon==='MXN'||(e.mxn_hrs||0)>0); })
       .reduce(function(s,e){ return s+(e.perdiem||0); }, 0);
     return {label:c.c, usd_hrs:c.usd_hrs||0, usd:c.usd||0, mxn:c.mxn||0, mxn_hrs:c.mxn_hrs||0, perdiem_mxn:perdiem_mxn};
   });
@@ -1583,7 +1583,7 @@ function toggleCostosDetail(subId, mes, label){
     const hrsStr = `<span style="display:inline-block;min-width:58px;text-align:center;font-size:.67rem;font-weight:700;padding:2px 4px;border-radius:4px;${hrs>0?'background:rgba(31,91,166,.1);color:#1F5BA6':'opacity:0'}">${hrs>0?fN(hrs)+' hrs':'​'}</span>`;
     const rateViat = (e.rate_viat != null && e.rate_viat > 0) ? e.rate_viat : 0;
     const viatStr = `<span style="display:inline-block;min-width:62px;text-align:center;font-size:.67rem;font-weight:700;padding:2px 4px;border-radius:4px;${rateViat>0?'background:rgba(5,150,105,.1);color:#059669':'opacity:0'}">${rateViat>0?'$'+rateViat+'/día':'​'}</span>`;
-    const dias = hrs>0 ? Math.round(hrs/8) : 0;
+    const dias = (e.days!=null && e.days>0) ? e.days : (hrs>0 ? Math.round(hrs/8) : 0);
     const diasStr = `<span style="display:inline-block;min-width:28px;text-align:center;font-size:.67rem;font-weight:700;padding:2px 4px;border-radius:4px;${dias>0?'background:rgba(13,31,60,.08);color:#0D1F3C':'opacity:0'}">${dias>0?dias+'d':'​'}</span>`;
     const costMXN = showMXN && e.mxn_cost>0 ? fM(e.mxn_cost) : '—';
     tr2.innerHTML=`
@@ -1609,6 +1609,35 @@ function toggleCostosDetail(subId, mes, label){
     after2.insertAdjacentElement('afterend', tr2);
     after2 = tr2;
   });
+
+  // Fila TOTAL
+  var totUSDHrs=0,totViat=0,totUSDTotal=0,totMXNCost=0,totPerdiemMXN=0,totHrs=0;
+  entries.forEach(function(e){
+    var usdHrsCost = e.rate>0 ? e.rate * (e.usd_hrs||0) : 0;
+    var viat = (e.perdiem!=null&&e.perdiem>0) ? e.perdiem : Math.max(0,e.usd_cost-usdHrsCost);
+    totUSDHrs    += usdHrsCost;
+    totViat      += (e.usd_hrs||0)>0 ? viat : 0;
+    totUSDTotal  += e.usd_cost + ((e.usd_hrs||0)>0 ? e.perdiem||0 : 0);
+    totMXNCost   += e.mxn_cost||0;
+    totPerdiemMXN+= (e.mxn_hrs||0)>0 ? e.perdiem||0 : 0;
+    totHrs       += (e.usd_hrs||0)+(e.mxn_hrs||0);
+  });
+  var totRow = document.createElement('tr');
+  totRow.className='detail-row visible';
+  totRow.id='cdet-'+subId+'-total';
+  totRow.style.cssText='border-top:2px solid rgba(31,91,166,.25)';
+  totRow.innerHTML=`
+    <td style="padding-left:52px"><strong style="color:var(--navy);font-size:.75rem">TOTAL</strong>
+      <span style="font-size:.67rem;color:#64748B;margin-left:8px">${fN(totHrs)} hrs</span>
+    </td>
+    <td class="num"><strong>${showUSD && totUSDHrs>0 ? fU(totUSDHrs) : '—'}</strong></td>
+    <td class="num"><strong>${showUSD && totViat>0 ? fU(totViat) : '—'}</strong></td>
+    <td class="num">—</td>
+    <td class="num"><strong>${showUSD && totUSDTotal>0 ? fU(totUSDTotal) : '—'}</strong></td>
+    <td class="num"><strong>${showMXN && totMXNCost>0 ? fM(totMXNCost) : '—'}</strong></td>
+    <td class="num"><strong>${showMXN && totPerdiemMXN>0 ? fM(totPerdiemMXN) : '—'}</strong></td>
+    <td></td>`;
+  after2.insertAdjacentElement('afterend', totRow);
 }
 
 function toggleCostosBreak(mes){
@@ -1727,7 +1756,7 @@ function showRecursoMes(mes, btn){
     var byName = {};
     cresData.forEach(function(e){
       var k = e.n;
-      if(!byName[k]) byName[k] = {r:e.n, h:0, mon:e.mxn_hrs>0?'MXN':'USD', usd:0, mxn:0, neto_mxn:0, neto_usd:0};
+      if(!byName[k]) byName[k] = {r:e.n, h:0, mon:e.mon||(e.mxn_hrs>0?'MXN':'USD'), usd:0, mxn:0, neto_mxn:0, neto_usd:0};
       byName[k].h += (e.usd_hrs||0)+(e.mxn_hrs||0);
       if(e.mxn_hrs>0){
         // MXN resource: mxn_cost is hours only, perdiem is MXN perdiem

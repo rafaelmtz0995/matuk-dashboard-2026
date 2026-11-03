@@ -297,6 +297,9 @@ def extraer_pasivo():
             cliente = str(row[2]).strip() if row[2] else ''
             if not cliente or cliente.upper() in ('CLIENTE', 'TOTAL', 'MES CIERRE'): continue
             if 'TOTAL' in cliente.upper(): continue
+            # Saltar filas de RECURSO (col3 = 'MXN' o 'USD') — solo queremos filas de CLIENTE
+            personas_val = row[3]
+            if isinstance(personas_val, str) and str(personas_val).strip().upper() in ('MXN', 'USD'): continue
             if m not in detalle: detalle[m] = []
             detalle[m].append({
                 'c': cliente,
@@ -369,6 +372,7 @@ def extraer_horas():
             if ckey not in cres_tmp[m]:
                 cres_tmp[m][ckey] = {'n':name,'po':po,'svc':svc,'c':cust,'proj':proj,
                                      'rate':rate_val,'rate_viat':rate_viat,
+                                     'mon':'MXN' if es_mxn else 'USD',
                                      'usd_hrs':0.0,'mxn_hrs':0.0,
                                      'usd_cost':0.0,'mxn_cost':0.0,
                                      'perdiem':0.0,'days':0.0,
@@ -461,7 +465,8 @@ def extraer_costos(tc_mes):
             'perdiem_usd':sf(row[4]),   # Perdiem USD  ← NUEVO
             'usd_total':  sf(row[5]),   # Total USD
             'mxn_hrs':    sf(row[7]),   # Costo Hrs MXN
-            'mxn_total':  sf(row[8]),   # Total MXN
+            'perdiem_mxn':sf(row[8]),   # Perdiem MXN  ← col8
+            'mxn_total':  sf(row[9]),   # Total MXN   ← col9
             'by_cust':    [],
         }
 
@@ -652,7 +657,7 @@ def actualizar_html(clientes_mes, total_mes, ing_usd, tc_mes,
                 'perdiem_usd':round(d.get('perdiem_usd',0),2),
                 'usd_total':  round(d['usd_total'],2),
                 'mxn_hrs':    round(d['mxn_hrs'],2),
-                'perdiem_mxn':round(d['mxn_total'] - d['mxn_hrs'],2),
+                'perdiem_mxn':round(d.get('perdiem_mxn',0),2),
                 'mxn_total':  round(d['mxn_total'],2),
                 'by_cust':    d['by_cust'],
                 'tc':         d.get('tc',0),
@@ -2512,17 +2517,17 @@ def actualizar_pasivo_html(html, cierres, detalle, vivo):
     # Reemplazar const PASIVOS
     pasivos_str = json.dumps(pasivos_js, ensure_ascii=False)
     html = re.sub(
-        r'const PASIVOS = \{[\s\S]*?\};',
-        f'const PASIVOS = {pasivos_str};',
+        r'(?:const|var) PASIVOS = \{[\s\S]*?\};',
+        f'var PASIVOS = {pasivos_str};',
         html, count=1
     )
 
     # Actualizar showPasivoMes call en showTab con el primer mes disponible
-    first_mes = MES_LABEL.get([m for m in orden_meses if m in detalle and detalle[m]][0] if any(detalle.get(m) for m in orden_meses) else 'JUL', 'jul-26')
-    first_btn_id = f"pbtn-{first_mes[:3]}"
+    last_mes = MES_LABEL.get([m for m in orden_meses if m in detalle and detalle[m]][-1] if any(detalle.get(m) for m in orden_meses) else 'JUL', 'jul-26')
+    last_btn_id = f"pbtn-{last_mes[:3]}"
     html = re.sub(
         r"showPasivoMes\('[a-z]{3}-\d{2}', document\.getElementById\('pbtn-[a-z]{3}'\)\)",
-        f"showPasivoMes('{first_mes}', document.getElementById('{first_btn_id}'))",
+        f"showPasivoMes('{last_mes}', document.getElementById('{last_btn_id}'))",
         html, count=1
     )
 
