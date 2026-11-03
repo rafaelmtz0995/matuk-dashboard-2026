@@ -326,6 +326,7 @@ def extraer_horas():
     bd_tmp = {m:{} for m in MESES}
     nm_tmp = {m:{} for m in MESES}  # nombres con horas por (svc,po,cust)
     cres_tmp = {m:{} for m in MESES}  # CRES: keyed por (po,name,svc,cust)
+    cres_wd_last = {m:{} for m in MESES}  # ultimo wd conocido por clave y mes
 
     for row in ws.iter_rows(min_row=2, values_only=True):
         if not row[3] or 'HOURS' not in str(row[3]).upper(): continue
@@ -347,7 +348,12 @@ def extraer_horas():
         except: rate_viat = 0.0
         # Calcular costo de horas desde horas del row × rate (NO usar row[28]/row[30] que son YTD acumulado)
         hrs_row  = st + ot + dt  # horas reales de este row
-        days_row = wd if wd > 0 else (round(hrs_row / 8) if hrs_row > 0 else 0)
+        # Si wd=0, usar el ultimo wd conocido para esta clave (evita fallback hrs/8 incorrecto)
+        if wd and wd > 0:
+            cres_wd_last[m][(po, name, svc, cust)] = wd
+            days_row = wd
+        else:
+            days_row = cres_wd_last[m].get((po, name, svc, cust), round(hrs_row / 8) if hrs_row > 0 else 0)
         perdiem_row = rate_viat * days_row  # costo viáticos de este row (USD)
 
         data[m]['hours']+=hrs; data[m]['st']+=st; data[m]['ot']+=ot; data[m]['dt']+=dt
