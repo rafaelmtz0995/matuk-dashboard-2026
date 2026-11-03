@@ -253,6 +253,7 @@ def extraer_pasivo():
     cierres = {}
     vivo = None
     detalle = {}
+    detalle_rec = {}
     mode = None  # 'vivo', 'historico', 'detalle'
 
     for row in rows:
@@ -294,28 +295,42 @@ def extraer_pasivo():
 
         elif mode == 'detalle' and mes_str in MES_STR:
             m = MES_STR[mes_str]
-            cliente = str(row[2]).strip() if row[2] else ''
-            if not cliente or cliente.upper() in ('CLIENTE', 'TOTAL', 'MES CIERRE'): continue
-            if 'TOTAL' in cliente.upper(): continue
-            # Saltar filas de RECURSO (col3 = 'MXN' o 'USD') — solo queremos filas de CLIENTE
+            col2 = str(row[2]).strip() if row[2] else ''
+            if not col2 or col2.upper() in ('CLIENTE', 'TOTAL', 'MES CIERRE'): continue
+            if 'TOTAL' in col2.upper(): continue
             personas_val = row[3]
-            if isinstance(personas_val, str) and str(personas_val).strip().upper() in ('MXN', 'USD'): continue
-            if m not in detalle: detalle[m] = []
-            detalle[m].append({
-                'c': cliente,
-                'p': int(sf(row[3])),
-                'h': round(sf(row[4]), 2),
-                'usd': round(sf(row[5]), 2),
-                'mxn': round(sf(row[6]), 2),
-                'neto_mxn': round(sf(row[7]), 2),
-                'neto_usd': round(sf(row[8]), 2) if len(row)>8 and row[8] else 0,
-            })
+            mon_str = str(personas_val).strip().upper() if isinstance(personas_val, str) else ''
+            if mon_str in ('MXN', 'USD'):
+                # Fila de RECURSO: col2=nombre, col3=moneda, col4=horas, col5=usd, col6=mxn, col7=neto_mxn, col8=neto_usd
+                if m not in detalle_rec: detalle_rec[m] = []
+                detalle_rec[m].append({
+                    'r': col2,
+                    'mon': mon_str,
+                    'h': round(sf(row[4]), 2),
+                    'usd': round(sf(row[5]), 2),
+                    'mxn': round(sf(row[6]), 2),
+                    'neto_mxn': round(sf(row[7]), 2),
+                    'neto_usd': round(sf(row[8]), 2) if len(row)>8 and row[8] else 0,
+                })
+            else:
+                # Fila de CLIENTE
+                if m not in detalle: detalle[m] = []
+                detalle[m].append({
+                    'c': col2,
+                    'p': int(sf(row[3])),
+                    'h': round(sf(row[4]), 2),
+                    'usd': round(sf(row[5]), 2),
+                    'mxn': round(sf(row[6]), 2),
+                    'neto_mxn': round(sf(row[7]), 2),
+                    'neto_usd': round(sf(row[8]), 2) if len(row)>8 and row[8] else 0,
+                })
 
     wb.close()
     print(f"    Cierres: {list(cierres.keys())}  Vivo: {vivo}")
     for m, d in cierres.items():
         print(f"    {m}: horas={d['horas']:.1f} usd=${d['total_usd']:,.0f} neto_mxn=${d['neto_mxn']:,.0f}")
-    return cierres, detalle, vivo
+    print(f"    Recursos por mes: { {k: len(v) for k,v in detalle_rec.items()} }")
+    return cierres, detalle, detalle_rec, vivo
 
 # ── HORAS detalle para DATA y BREAKDOWN ──────────────────────────────────────
 def extraer_horas():
@@ -2400,7 +2415,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
     return html
 
-def actualizar_pasivo_html(html, cierres, detalle, vivo):
+def actualizar_pasivo_html(html, cierres, detalle, detalle_rec, vivo):
     """Actualiza la sección hardcodeada de HISTORIAL PASIVOS en el HTML."""
     print("  Actualizando HISTORIAL PASIVOS en HTML...")
 
@@ -2528,6 +2543,24 @@ def actualizar_pasivo_html(html, cierres, detalle, vivo):
         html, count=1
     )
 
+    # Reemplazar var PASIVOS_REC con datos de recursos por mes desde Excel
+    pasivos_rec_js = {}
+    for m in meses_disponibles:
+        label = MES_LABEL[m]
+        if m in detalle_rec and detalle_rec[m]:
+            # Ordenar por usd+mxn desc (igual que showRecursoMes)
+            pasivos_rec_js[label] = sorted(detalle_rec[m], key=lambda r: -(r['usd']+r['mxn']))
+    if pasivos_rec_js:
+        pasivos_rec_str = json.dumps(pasivos_rec_js, ensure_ascii=False)
+        html = re.sub(
+            r'var PASIVOS_REC=\{[\s\S]*?\};',
+            f'var PASIVOS_REC={pasivos_rec_str};',
+            html, count=1
+        )
+        print(f"    OK PASIVOS_REC actualizado — meses: {list(pasivos_rec_js.keys())}")
+    else:
+        print('    ⚠️  PASIVOS_REC: sin datos de recursos en detalle_rec')
+
     # Actualizar showPasivoMes call en showTab con el primer mes disponible
     last_mes = MES_LABEL.get([m for m in orden_meses if m in detalle and detalle[m]][-1] if any(detalle.get(m) for m in orden_meses) else 'JUL', 'jul-26')
     last_btn_id = f"pbtn-{last_mes[:3]}"
@@ -2555,7 +2588,7 @@ def main():
     fdata                   = extraer_fdata()
     horas_data, breakdown, resources, cres = extraer_horas()
     costos                  = extraer_costos(tc_mes)
-    cierres, detalle, vivo  = extraer_pasivo()
+    cierres, detalle, detalle_rec, vivo  = extraer_pasivo()
     fegr_extra              = extraer_fegr_extra()
 
     print()
@@ -2572,7 +2605,7 @@ def main():
     # Actualizar sección HISTORIAL PASIVOS (hardcodeada en HTML)
     print("  Aplicando datos de HISTORIAL PASIVOS...")
     with open(OUTPUT_HTML, 'r', encoding='utf-8') as f: html_p = f.read()
-    html_p = actualizar_pasivo_html(html_p, cierres, detalle, vivo)
+    html_p = actualizar_pasivo_html(html_p, cierres, detalle, detalle_rec, vivo)
     with open(OUTPUT_HTML, 'w', encoding='utf-8') as f: f.write(html_p)
     print(f"  OK guardado con pasivos ({len(html_p):,} bytes)")
 
