@@ -1715,7 +1715,27 @@ function showRecursoMes(mes, btn){
     b.style.background='#F1F5F9'; b.style.color='#64748B'; b.style.borderColor='#CBD5E1';
   });
   if(btn){ btn.style.background='var(--navy)'; btn.style.color='#fff'; btn.style.borderColor='var(--navy)'; }
-  var data = PASIVOS_REC[mes] || [];
+  // Fallback: if PASIVOS_REC doesn't have this month, build from CRES (for vivo month)
+  var cresKey = mes.replace(/^([a-z]+)-\d+$/,function(_,m){return m.toUpperCase();});
+  var data = (PASIVOS_REC[mes] && PASIVOS_REC[mes].length>0) ? PASIVOS_REC[mes] : (function(){
+    var cresData = (typeof CRES!=='undefined' && CRES[cresKey]) ? CRES[cresKey] : [];
+    var byName = {};
+    cresData.forEach(function(e){
+      var k = e.n;
+      if(!byName[k]) byName[k] = {r:e.n, h:0, mon:e.mxn_hrs>0?'MXN':'USD', usd:0, mxn:0, neto_mxn:0, neto_usd:0};
+      byName[k].h += (e.usd_hrs||0)+(e.mxn_hrs||0);
+      if(e.mxn_hrs>0){
+        // MXN resource: mxn_cost is hours only, perdiem is MXN perdiem
+        byName[k].mxn += (e.mxn_cost||0)+(e.perdiem||0);
+      } else {
+        // USD resource
+        byName[k].usd += (e.usd_cost||0)+(e.perdiem||0);
+      }
+    });
+    // neto_mxn ≈ mxn (approximate, no retention for live month)
+    return Object.values(byName).map(function(r){ r.neto_mxn=r.mxn; return r; })
+      .sort(function(a,b){return (b.usd+b.mxn)-(a.usd+a.mxn);});
+  })();
   var body = document.getElementById('recurso-detail-body');
   if(!body) return;
   var fN = function(n){ return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:1}); };
