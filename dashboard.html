@@ -565,7 +565,7 @@ footer strong{color:#fff}
           <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;min-width:120px;border-bottom:none">Mes</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Hrs USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costos Operativos USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Total USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo MXN</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem MXN</th>
@@ -1563,7 +1563,7 @@ function toggleCostosDetail(subId, mes, label){
       <span>Recurso</span>
       <span style="font-weight:400;opacity:.7;font-size:.67rem;white-space:nowrap;display:flex;align-items:center;gap:2px"><span style="min-width:55px;text-align:left">Proyecto</span><span style="display:inline-block;min-width:58px;text-align:center;padding:2px 4px">Rate</span><span style="display:inline-block;min-width:58px;text-align:center;padding:2px 4px">Horas</span><span style="display:inline-block;min-width:62px;text-align:center;padding:2px 4px">Viát.</span><span style="display:inline-block;min-width:28px;text-align:center;padding:2px 4px">Días</span></span>
     </div>
-  </td><td class="num">Costo Hrs USD</td><td class="num">Viáticos</td><td class="num">Otros Costos USD</td><td class="num">Costo Total USD</td><td class="num">Costo MXN</td><td class="num">Perdiem MXN</td>
+  </td><td class="num">Costo Hrs USD</td><td class="num">Viáticos</td><td class="num">Costos Operativos USD</td><td class="num">Costo Total USD</td><td class="num">Costo MXN</td><td class="num">Perdiem MXN</td>
   <td style="text-align:right;padding:8px 14px">
     <button onclick="exportCostosDesglose('${subId}','${mes}','${label.replace(/'/g,"\\'")}')" style="background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.5);color:#fff;font-size:.62rem;font-weight:700;padding:4px 10px;border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;letter-spacing:.04em">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -2663,7 +2663,7 @@ function fRenderEgrBars(){
   const cats = [
     {k:'horas',        label:'Horas técnicas',    color:'#1F5BA6', src:'fdata', nota:'Horas de ingenieros facturadas a proyectos'},
     {k:'viat',         label:'Viáticos proyecto',  color:'#0369A1', src:'fdata', nota:'Viáticos del equipo técnico en campo'},
-    {k:'costos_otros', label:'Otros costos',       color:'#0891B2', src:'extra', nota:'Seguridad, DC3, Visas, Exámenes médicos, Fonacot, Materiales'},
+    {k:'costos_otros', label:'Costos Operativos',       color:'#0891B2', src:'extra', nota:'Seguridad, DC3, Visas, Exámenes médicos, Fonacot, Materiales'},
     {k:'nom',          label:'Nómina admin',       color:'#E8A020', src:'fdata', nota:'Sueldos del personal administrativo'},
     {k:'comisiones',   label:'Comisiones ventas',  color:'#F59E0B', src:'extra', nota:'Comisiones pagadas al equipo de ventas y representantes'},
     {k:'gastos_op',    label:'Gastos operativos',  color:'#D97706', src:'extra', nota:'IMSS, ISN, Honorarios, Rentas, Mantenimiento, Internet, Servicios de oficina'},
