@@ -2366,9 +2366,9 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
                 fixes_fail.append('HERO-CHART (no se pudo cerrar hero-right div en view-flujo)')
 
     # FIX FLINE-SIMPLE: Gráfica azul con tooltip instantaneo (v5) en Evolución Saldo Bancos (f-line-2)
-    _SIMPLE_OK = 'function fRenderLineSaldoSimple(){// v6-hover'
+    _SIMPLE_OK = 'function fRenderLineSaldoSimple(){// v7-robust'
     _SIMPLE_FUNC = (
-        '\nfunction fRenderLineSaldoSimple(){// v6-hover\n'
+        '\nfunction fRenderLineSaldoSimple(){// v7-robust\n'
         '  var svg = document.getElementById(\'f-line-2\');\n'
         '  if(!svg) return;\n'
         '  var ALL_MONTHS = [\'ENE\',\'FEB\',\'MAR\',\'ABR\',\'MAY\',\'JUN\',\'JUL\',\'AGO\',\'SEP\',\'OCT\',\'NOV\',\'DIC\'];\n'
@@ -2434,7 +2434,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     _FLINE2_HIDDEN = '<svg class="fline" id="f-line-2" viewBox="0 0 400 110" style="display:none"></svg>'
     _FLINE2_VISIBLE = '<svg class="fline" id="f-line-2" viewBox="0 0 420 150" style="width:100%;height:150px;display:block"></svg>'
     if _SIMPLE_OK in html:
-        fixes_ok.append('FLINE-SIMPLE (ya OK v6-hover - grafica azul hover por punto)')
+        fixes_ok.append('FLINE-SIMPLE (ya OK v7-robust - grafica azul tooltip robusto)')
     elif 'function fRenderLineSaldoSimple(){' in html:
         _old_fn_s = html.find('\nfunction fRenderLineSaldoSimple(){')
         _old_fn_r = html.find("svg.addEventListener('mouseleave', svg._fLineLeave);", _old_fn_s)
