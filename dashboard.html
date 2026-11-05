@@ -955,6 +955,13 @@ footer strong{color:#fff}
       <div class="fsaldo-banco"><div class="fsaldo-bname">BMX MXN</div><div class="fsaldo-bval" id="fb-bmxmn"></div></div>
       <div class="fsaldo-banco"><div class="fsaldo-bname">INVERSIÓN</div><div class="fsaldo-bval" id="fb-inversion"></div><div class="fsaldo-busd" id="fb-inversion-usd"></div></div>
       <div class="fsaldo-banco"><div class="fsaldo-bname">SALDO RH</div><div class="fsaldo-bval" id="fb-rh"></div><div class="fsaldo-busd" id="fb-rh-usd"></div></div>
+      <div class="fsaldo-banco" style="grid-column:1/-1;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:2px">
+        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1E40AF">Total consolidado</div>
+        <div style="text-align:right">
+          <div style="font-size:.88rem;font-weight:800;color:#1E3A5F" id="fb-total-mxn"></div>
+          <div style="font-size:.6rem;color:#64748B;margin-top:1px" id="fb-total-usd"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -2446,6 +2453,10 @@ function fRenderBancos(){
     el=document.getElementById('fb-inversion-usd');if(el)el.textContent=fmtUSD2(b['INVERSION']);
     el=document.getElementById('fb-rh');if(el)el.textContent=fmt(b['SALDO RH']);
     el=document.getElementById('fb-rh-usd');if(el)el.textContent=fmtUSD2(b['SALDO RH']);
+    var totalMxn=getVal(b['BBVA Pesos'])+getVal(b['BBVA USD'])+getVal(bmxmn)+getVal(b['BMX USD'])+getVal(b['INVERSION'])+getVal(b['SALDO RH']);
+    var totalUsd=((b['BBVA USD']&&b['BBVA USD'].usd)||0)+((b['BMX USD']&&b['BMX USD'].usd)||0)+((b['INVERSION']&&b['INVERSION'].usd)||0)+((b['SALDO RH']&&b['SALDO RH'].usd)||0);
+    el=document.getElementById('fb-total-mxn');if(el)el.textContent=totalMxn?'\$'+(totalMxn/1e6).toFixed(2)+'M MXN':'';
+    el=document.getElementById('fb-total-usd');if(el&&totalUsd)el.textContent=totalUsd>=1e6?'USD '+(totalUsd/1e6).toFixed(2)+'M':'USD '+(totalUsd/1e3).toFixed(0)+'K';
   } else {
     const k = fDivisa;
     document.getElementById('fb-bbvausd').textContent = fFmt(FBANCOS_ENE.bbvausd[k]);
