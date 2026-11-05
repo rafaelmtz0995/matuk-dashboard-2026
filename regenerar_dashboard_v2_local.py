@@ -23,8 +23,8 @@ print(f"FLUJO : {FLUJO_FILE}")
 print(f"PAGOS : {PAGOS_FILE}")
 print(f"HTML  : {OUTPUT_HTML}")
 
-MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT']
-MES_MAP = {1:'ENE',2:'FEB',3:'MAR',4:'ABR',5:'MAY',6:'JUN',7:'JUL',8:'AGO',9:'SEP',10:'OCT'}
+MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV']
+MES_MAP = {1:'ENE',2:'FEB',3:'MAR',4:'ABR',5:'MAY',6:'JUN',7:'JUL',8:'AGO',9:'SEP',10:'OCT',11:'NOV'}
 CMONTHS = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT']
 
 MES_LARGO = {
@@ -216,8 +216,12 @@ def extraer_fdata():
         'COSTOS FIJOS': 'cf', 'COSTOS FIJOS ': 'cf',
     }
     found = set()
+    amex_skip_first = True  # El primer AMEX (row~97) está dentro de COSTOS OPERATIVOS; usar el segundo (row~146)
     for row in rows:
         label = str(row[0]).strip().upper() if row[0] else ""
+        if label == 'AMEX' and amex_skip_first:
+            amex_skip_first = False  # skip first, next one will be read
+            continue
         if label in TARGETS and label not in found:
             key = TARGETS[label]
             found.add(label)
@@ -255,6 +259,7 @@ def extraer_pasivo():
     detalle = {}
     detalle_rec = {}
     mode = None  # 'vivo', 'historico', 'detalle'
+    detalle_mes_actual = None  # rastrear mes activo en modo detalle (sub-filas tienen col1 vacío)
 
     for row in rows:
         if not row or len(row) < 2: continue
@@ -266,7 +271,7 @@ def extraer_pasivo():
         if 'CIERRES HIST' in col1u:
             mode = 'historico'; continue
         if 'DETALLE HIST' in col1u:
-            mode = 'detalle'; continue
+            mode = 'detalle'; detalle_mes_actual = None; continue
         if 'C' in col1u and 'MO CERRAR' in col1u:
             mode = None; continue
 
@@ -293,11 +298,17 @@ def extraer_pasivo():
                 'is_vivo': False,
             }
 
-        elif mode == 'detalle' and mes_str in MES_STR:
-            m = MES_STR[mes_str]
+        elif mode == 'detalle':
+            # Actualizar mes activo si col1 trae un mes válido
+            if mes_str in MES_STR:
+                detalle_mes_actual = mes_str
+            # Procesar fila con el mes activo (client rows tienen col1=mes, resource sub-rows tienen col1='')
+            if not detalle_mes_actual: continue
+            m = MES_STR[detalle_mes_actual]
             col2 = str(row[2]).strip() if row[2] else ''
             if not col2 or col2.upper() in ('CLIENTE', 'TOTAL', 'MES CIERRE'): continue
             if 'TOTAL' in col2.upper(): continue
+            if col2.lower() in MES_STR: continue  # saltar filas de total de mes (col2="oct-26")
             personas_val = row[3]
             mon_str = str(personas_val).strip().upper() if isinstance(personas_val, str) else ''
             if mon_str in ('MXN', 'USD'):
@@ -369,7 +380,15 @@ def extraer_horas():
             days_row = wd
         else:
             days_row = cres_wd_last[m].get((po, name, svc, cust), round(hrs_row / 8) if hrs_row > 0 else 0)
-        perdiem_row = rate_viat * days_row  # costo viáticos de este row (USD)
+        # Usar col_AD (row[29] = "Perdiem diario formula") si está disponible;
+        # de lo contrario usar rate_viat × days solo cuando hay días reales (wd>0), no con fallback
+        perdiem_formula = sf(row[29]) if len(row) > 29 and row[29] else 0.0
+        if perdiem_formula > 0:
+            perdiem_row = perdiem_formula          # valor calculado en Excel (correcto)
+        elif wd and wd > 0:
+            perdiem_row = rate_viat * days_row     # calcular cuando hay días reales
+        else:
+            perdiem_row = 0.0                      # wd=0 → sin perdiem esta semana
 
         data[m]['hours']+=hrs; data[m]['st']+=st; data[m]['ot']+=ot; data[m]['dt']+=dt
         if name: data[m]['res'].add(name)
@@ -770,6 +789,8 @@ def extraer_fegr_extra():
         'TOTAL COSTOS':     'total_costos',
         'HORAS':            'horas',
         'VIATICOS':         'viat',
+        'Total COSTOS OPERATIVOS': 'costos_otros',
+        'TOTAL COSTOS OPERATIVOS': 'costos_otros',
     }
     # PRESTAMO: hay 2 filas — fila 121 (en COSTOS, siempre 0) y fila 144 (en GASTOS, tiene valor)
     # Sumar ambas por si acaso (la primera siempre es 0)
@@ -792,12 +813,8 @@ def extraer_fegr_extra():
     for m in MESES:
         result[m]['gastos_op'] = max(0, result[m]['gastos_op'] - result[m]['comisiones'] - result[m]['nom_admon'] - result[m]['ptu'])
 
-    # costos_otros = Total COSTOS - horas - viaticos
-    for m in MESES:
-        tc = result[m]['total_costos']
-        h  = result[m]['horas']
-        v  = result[m]['viat']
-        result[m]['costos_otros'] = max(0, round(tc - h - v))
+    # costos_otros = leído directamente de 'Total COSTOS OPERATIVOS'
+    # (Los costos operativos se movieron a esa sección del Excel)
 
     wb.close()
 
@@ -907,7 +924,7 @@ def extraer_saldo_bancos():
         _FL_MES_COLS = [('ENE',1,2),('FEB',4,5),('MAR',7,8),('ABR',10,11),
                         ('MAY',13,14),('JUN',16,17),('JUL',19,20),('AGO',22,23),
                         ('SEP',25,26),('OCT',28,29),('NOV',31,32),('DIC',34,35)]
-        _EXTRA = [('INVERSION', 170, True), ('SALDO RH', 172, True)]
+        _EXTRA = [('INVERSION', 174, True), ('SALDO RH', 176, True)]
         for lbl_ex, row_idx, is_usd in _EXTRA:
             if row_idx < len(flujo_rows):
                 r_ex = flujo_rows[row_idx]
@@ -1468,13 +1485,12 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     EGRCATS_DESEADO = """const egrCats = [
     {k:'horas',       label:'Horas técnicas', color:'#1F5BA6',src:'fdata'},
     {k:'viat',        label:'Viáticos',       color:'#0369A1',src:'fdata'},
-    {k:'costos_otros',label:'Otros costos',   color:'#0891B2',src:'extra'},
+    {k:'costos_otros',label:'Costos Operativos',   color:'#0891B2',src:'extra'},
     {k:'nom',         label:'Nómina admin',   color:'#E8A020',src:'fdata'},
     {k:'comisiones',  label:'Comisiones',     color:'#F59E0B',src:'extra'},
     {k:'gastos_op',   label:'Gastos op.',     color:'#D97706',src:'extra'},
     {k:'imp',         label:'Impuestos',      color:'#94A3B8',src:'fdata'},
-    {k:'amex',        label:'AMEX',           color:'#7C3AED',src:'fdata'},
-    {k:'cf',          label:'Costos fijos',   color:'#06B6D4',src:'fdata'},
+    {k:'amex',        label:'AMEX L&L',           color:'#7C3AED',src:'fdata'},
     {k:'seguros',     label:'Seguros',        color:'#65A30D',src:'extra'},
     {k:'ptu',         label:'PTU',            color:'#92400E',src:'extra'},
     {k:'prestamo',    label:'Préstamo',       color:'#DC2626',src:'extra'},
@@ -1664,7 +1680,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
           <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;min-width:120px;border-bottom:none">Mes</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Hrs USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costos Operativos USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Total USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo MXN</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none"></th>
@@ -1757,7 +1773,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
           <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costos Operativos USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Total</th>
         </tr>
       </thead>
@@ -1767,7 +1783,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
           <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;min-width:120px">Mes</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Hrs USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Perdiem USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costos Operativos USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo Total USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff">Costo MXN</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff"></th>
@@ -1779,7 +1795,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
           <th style="padding:10px 14px;text-align:left;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;min-width:120px;border-bottom:none">Mes</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Hrs USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Perdiem USD</th>
-          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Otros Costos USD</th>
+          <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costos Operativos USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo Total USD</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none">Costo MXN</th>
           <th style="padding:10px 14px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff!important;background:#0D1F3C!important;border-bottom:none"></th>
@@ -1863,16 +1879,17 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     var bv=s.banks[b.key]||{};
     var mxn=(typeof bv==='object'&&bv!==null&&'mxn' in bv)?bv.mxn:(typeof bv==='number'?bv:0);
     var usd=(typeof bv==='object'&&bv!==null&&'usd' in bv)?bv.usd:null;
-    var usdLine=(b.isUSD&&usd!==null)?'<div style="font-size:.5rem;color:#93C5FD;margin-top:2px;font-weight:600">'+fmtUSD(usd)+'</div>':'<div style="font-size:.5rem;color:#64748B;margin-top:1px">MXN</div>';
+    var mainVal=(b.isUSD&&usd!==null)?fmtUSD(usd):fmtMXN(mxn)+' MXN';
+    var subLine=(b.isUSD&&usd!==null)?'<div style="font-size:.5rem;color:#94A3B8;margin-top:1px">'+fmtMXN(mxn)+' MXN</div>':'<div style="font-size:.5rem;color:#64748B;margin-top:1px">MXN</div>';
     return '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:7px 9px">'
       +'<div style="font-size:.52rem;font-weight:700;color:#93C5FD;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+b.label+'</div>'
-      +'<div style="font-size:.72rem;font-weight:800;color:#fff;white-space:nowrap">'+fmtMXN(mxn)+' MXN</div>'
-      +usdLine
+      +'<div style="font-size:.72rem;font-weight:800;color:#fff;white-space:nowrap">'+mainVal+'</div>'
+      +subLine
       +'</div>';
   });
   elBanks.innerHTML = cards.join('');"""
-    if 'fmtMXN=function' in html and 'fmtUSD=function' in html:
-        fixes_ok.append('CARDS-RENDER (ya OK - MXN+USD)')
+    if 'fmtMXN=function' in html and 'fmtUSD=function' in html and 'var mainVal=' in html:
+        fixes_ok.append('CARDS-RENDER (ya OK - USD principal)')
     elif _CARDS_OLD in html:
         html = html.replace(_CARDS_OLD, _CARDS_NEW, 1)
         fixes_ok.append('CARDS-RENDER actualizado (MXN principal + USD abajo)')
@@ -1980,6 +1997,29 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
             fixes_ok.append('FSALDO-JS: todos los bancos USD con sub-monto')
         else:
             fixes_fail.append('FSALDO-JS (patron no encontrado)')
+
+    # FIX FSALDO-INVERSION-RH: inyectar código al final de fRenderSaldoDia para poblar
+    # fb-inversion y fb-rh (Evolución Saldo Bancos). La función usa cards.map() y no llena
+    # esos elementos automaticamente. Este fix es independiente del estado FSALDO.
+    _FINV_MARKER = "el2=document.getElementById('fb-inversion');if(el2)el2.textContent=fmtInv(s.banks['INVERSION']);"
+    _FINV_ANCHOR = "  elBanks.innerHTML = cards.join('');\n}"
+    _FINV_NEW = """  elBanks.innerHTML = cards.join('');
+  // Poblar INVERSIÓN y SALDO RH en sección Evolución Saldo Bancos
+  var fmtInv=function(entry){var v=(entry&&typeof entry==='object'&&'mxn' in entry)?entry.mxn:(typeof entry==='number'?entry:0);if(v>=1e6)return '$'+(v/1e6).toFixed(2).replace(/\\.?0+$/,'')+'M';if(v>=1e3)return '$'+(v/1e3).toFixed(0)+'K';return '$'+Math.round(v);};
+  var fmtUSDinv=function(entry){if(!entry||typeof entry!=='object')return '';var u=entry.usd||0;if(!u)return '';return u>=1e6?'USD '+(u/1e6).toFixed(2)+'M':u>=1e3?'USD '+(u/1e3).toFixed(0)+'K':'USD '+Math.round(u);};
+  var el2;
+  el2=document.getElementById('fb-inversion');if(el2)el2.textContent=fmtInv(s.banks['INVERSION']);
+  el2=document.getElementById('fb-inversion-usd');if(el2)el2.textContent=fmtUSDinv(s.banks['INVERSION']);
+  el2=document.getElementById('fb-rh');if(el2)el2.textContent=fmtInv(s.banks['SALDO RH']);
+  el2=document.getElementById('fb-rh-usd');if(el2)el2.textContent=fmtUSDinv(s.banks['SALDO RH']);
+}"""
+    if _FINV_MARKER in html:
+        fixes_ok.append('FSALDO-INVERSION-RH (ya OK)')
+    elif _FINV_ANCHOR in html:
+        html = html.replace(_FINV_ANCHOR, _FINV_NEW, 1)
+        fixes_ok.append('FSALDO-INVERSION-RH: inyectado populate fb-inversion y fb-rh')
+    else:
+        fixes_fail.append('FSALDO-INVERSION-RH (patron elBanks.innerHTML no encontrado)')
 
     # FIX SALDO-REAL-PROY: Gráfica naranja con línea real histórica + proyección 3 meses
     # Reemplaza fRenderLineSaldo (azul simple) con versión naranja con proyección
@@ -2409,6 +2449,26 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
             fixes_fail.append('cFilterMes: patron no encontrado')
     else:
         fixes_ok.append('cFilterMes: (ya OK)')
+
+    # Fix COSTO MXN tabla: usar mxn_hrs (solo horas) en lugar de mxn_total (horas+perdiem)
+    # PERDIEM MXN ya se muestra en columna separada — mxn_total duplicaba el perdiem
+    _OLD_MXN_TOTAL_1 = "totalMXN += d.mxn_total||0;"
+    _NEW_MXN_TOTAL_1 = "totalMXN += d.mxn_hrs||0;"
+    _OLD_MXN_TOTAL_2 = "showMXN && d.mxn_total>0 ? fM(d.mxn_total) : '—'}"
+    _NEW_MXN_TOTAL_2 = "showMXN && (d.mxn_hrs||0)>0 ? fM(d.mxn_hrs) : '—'}"
+    _OLD_MXN_GUARD   = "if(!showUSD && !d.mxn_total) return;"
+    _NEW_MXN_GUARD   = "if(!showUSD && !d.mxn_hrs) return;"
+    changed_mxn = 0
+    for old, new in [(_OLD_MXN_TOTAL_1, _NEW_MXN_TOTAL_1),
+                     (_OLD_MXN_TOTAL_2, _NEW_MXN_TOTAL_2),
+                     (_OLD_MXN_GUARD,   _NEW_MXN_GUARD)]:
+        if old in html:
+            html = html.replace(old, new, 1)
+            changed_mxn += 1
+    if changed_mxn > 0:
+        fixes_ok.append('COSTO MXN tabla: mxn_total->mxn_hrs (%d cambios)' % changed_mxn)
+    else:
+        fixes_ok.append('COSTO MXN tabla: mxn_hrs (ya OK)')
 
     print("  FIXES OK:", ", ".join(fixes_ok))
     if fixes_fail:
