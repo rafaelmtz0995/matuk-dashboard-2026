@@ -2454,6 +2454,15 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
             fixes_fail.append('FLINE-SIMPLE (var SALDO_DIA no encontrado)')
 
 
+    # FIX RS-TOOLTIP-POS: mover rs-tooltip fuera de view-resumen (si está dentro, queda oculto en tabs no-resumen)
+    _RTTP_BAD  = '<div id="view-resumen">\n<div id="rs-tooltip"></div>'
+    _RTTP_GOOD = '<div id="rs-tooltip"></div>\n<div id="view-resumen">'
+    if _RTTP_BAD in html:
+        html = html.replace(_RTTP_BAD, _RTTP_GOOD, 1)
+        fixes_ok.append('RS-TOOLTIP-POS: movido fuera de view-resumen')
+    else:
+        fixes_ok.append('RS-TOOLTIP-POS (ya OK - fuera de view-resumen)')
+
     # FIX RESUMEN-HERO-IMG: Restaurar imagen Matuk Automation en hero de Resumen Ejecutivo
     _RESUMEN_IMG_OK = 'alt="Matuk Automation"'
     if _RESUMEN_IMG_OK in html:
