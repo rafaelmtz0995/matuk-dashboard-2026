@@ -839,10 +839,10 @@ footer strong{color:#fff}
 #view-flujo .fcli-fill{height:100%;border-radius:3px}
 #view-flujo .fcli-val{font-size:.63rem;color:var(--gray-500);min-width:72px;text-align:right;white-space:nowrap}
 #view-flujo .fsaldo-ctx{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
-#view-flujo .fsaldo-busd{font-size:.8rem;font-weight:800;color:var(--navy);margin-top:2px}
+#view-flujo .fsaldo-busd{font-size:.65rem;font-weight:700;color:var(--navy);margin-top:1px}
 #view-flujo .fsaldo-banco{background:#F8FAFC;border-radius:8px;padding:8px 10px;border:1px solid #E2E8F0}
 #view-flujo .fsaldo-bname{font-size:.58rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
-#view-flujo .fsaldo-bval{font-size:.8rem;font-weight:800;color:var(--navy)}
+#view-flujo .fsaldo-bval{font-size:.7rem;font-weight:800;color:var(--navy)}
 #view-flujo svg.fline{width:100%;height:150px;display:block}
 #view-flujo .up{color:#059669}
 #view-flujo .dn{color:#DC2626}
@@ -949,8 +949,8 @@ footer strong{color:#fff}
     <div class="fcard-sub" id="fsaldo-sub">Cierre OCT 2026 · distribución por banco</div>
     <svg class="fline" id="f-line-2" viewBox="0 0 420 150" style="width:100%;height:150px;display:block"></svg>
     <div class="fsaldo-ctx">
-      <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA USD</div><div class="fsaldo-bval" id="fb-bbvausd-usd" style="font-size:.85rem;font-weight:800;color:#1E3A5F"></div><div class="fsaldo-busd" id="fb-bbvausd" style="font-size:.8rem;font-weight:800;color:#1E3A5F;margin-top:2px"></div></div>
-      <div class="fsaldo-banco"><div class="fsaldo-bname">BMX USD</div><div class="fsaldo-bval" id="fb-bmxusd-usd" style="font-size:.85rem;font-weight:800;color:#1E3A5F"></div><div class="fsaldo-busd" id="fb-bmxusd" style="font-size:.8rem;font-weight:800;color:#1E3A5F;margin-top:2px"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA USD</div><div class="fsaldo-bval" id="fb-bbvausd-usd" style="font-size:.7rem;font-weight:800;color:#1E3A5F"></div><div class="fsaldo-busd" id="fb-bbvausd" style="font-size:.65rem;font-weight:700;color:#1E3A5F;margin-top:1px"></div></div>
+      <div class="fsaldo-banco"><div class="fsaldo-bname">BMX USD</div><div class="fsaldo-bval" id="fb-bmxusd-usd" style="font-size:.7rem;font-weight:800;color:#1E3A5F"></div><div class="fsaldo-busd" id="fb-bmxusd" style="font-size:.65rem;font-weight:700;color:#1E3A5F;margin-top:1px"></div></div>
       <div class="fsaldo-banco"><div class="fsaldo-bname">BBVA PESOS</div><div class="fsaldo-bval" id="fb-bbvamn"></div></div>
       <div class="fsaldo-banco"><div class="fsaldo-bname">BMX MXN</div><div class="fsaldo-bval" id="fb-bmxmn"></div></div>
       <div class="fsaldo-banco"><div class="fsaldo-bname">INVERSIÓN</div><div class="fsaldo-bval" id="fb-inversion"></div><div class="fsaldo-busd" id="fb-inversion-usd"></div></div>
@@ -958,8 +958,8 @@ footer strong{color:#fff}
       <div class="fsaldo-banco" style="grid-column:1/-1;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:2px">
         <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1E40AF">Total consolidado</div>
         <div style="text-align:right">
-          <div style="font-size:.88rem;font-weight:800;color:#1E3A5F" id="fb-total-mxn"></div>
-          <div style="font-size:.88rem;font-weight:800;color:#1E3A5F;margin-top:3px" id="fb-total-usd"></div>
+          <div style="font-size:.78rem;font-weight:800;color:#1E3A5F" id="fb-total-mxn"></div>
+          <div style="font-size:.7rem;font-weight:800;color:#1E3A5F;margin-top:2px" id="fb-total-usd"></div>
         </div>
       </div>
     </div>
@@ -2915,16 +2915,15 @@ function fRenderLineSaldo(){ // fRenderLineSaldo_v2
     el.addEventListener('mouseleave',function(){ tip.style.display='none'; });
   });
 }
-function fRenderLineSaldoSimple(){// v4
+function fRenderLineSaldoSimple(){// v5-tooltip
   var svg = document.getElementById('f-line-2');
   if(!svg) return;
   var ALL_MONTHS = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
   var W=400, H=110;
   var padL=36, padR=10, padT=12, padB=20;
-  // Usar FBANCOS_HIST (incluye todos los bancos: INVERSIÓN + SALDO RH)
   var data = ALL_MONTHS.map(function(m){
     var v = (typeof FBANCOS_HIST!=='undefined'&&FBANCOS_HIST[m]) ? FBANCOS_HIST[m].total_mxn : (function(){var d=FDATA[m];return d?fGet(d,'saldo'):0;})();
-    return {m:m, v:v>0?v:null};
+    return {m:m, v:v>0?v:null, usd:(typeof FBANCOS_HIST!=='undefined'&&FBANCOS_HIST[m])?FBANCOS_HIST[m].total_usd:null};
   }).filter(function(d){ return d.v!==null; });
   if(!data.length) return;
   var vals = data.map(function(d){return d.v;});
@@ -2944,21 +2943,49 @@ function fRenderLineSaldoSimple(){// v4
   parts.push('<defs><linearGradient id="fgrad2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3B82F6" stop-opacity=".18"/><stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/></linearGradient></defs>');
   parts.push('<path d="'+areaPath+'" fill="url(#fgrad2)"/>');
   parts.push('<polyline points="'+pts+'" fill="none" stroke="#3B82F6" stroke-width="2"/>');
+  var hitAreas = [];
   data.forEach(function(d,i){
     var x=cX(i), y=cY(d.v);
     var showLbl = i===0 || i===n-1 || fMes===d.m;
     var lbl = fmtS(d.v);
-    parts.push('<g style="cursor:pointer">');
-    parts.push('<title>'+d.m+': '+lbl+'</title>');
     parts.push('<circle cx="'+x+'" cy="'+y+'" r="9" fill="transparent"/>');
     parts.push('<circle cx="'+x+'" cy="'+y+'" r="'+(fMes===d.m?4:2.5)+'" fill="#3B82F6" stroke="#fff" stroke-width="1.2" style="pointer-events:none"/>');
     if(showLbl) parts.push('<text x="'+x+'" y="'+(y-7)+'" text-anchor="middle" font-size="8.5" fill="#1D4ED8" font-weight="600" style="pointer-events:none">'+lbl+'</text>');
     parts.push('<text x="'+x+'" y="'+(H-padB+11)+'" text-anchor="middle" font-size="7.5" fill="'+(fMes===d.m?'#1D4ED8':'#6B7280')+'" style="pointer-events:none">'+d.m+'</text>');
-    parts.push('</g>');
+    hitAreas.push({x:x, m:d.m, v:d.v, usd:d.usd});
   });
   svg.innerHTML = parts.join('');
+  if(svg._fLineMove) svg.removeEventListener('mousemove', svg._fLineMove);
+  if(svg._fLineLeave) svg.removeEventListener('mouseleave', svg._fLineLeave);
+  svg._fLineMove = function(e){
+    var tt = document.getElementById('rs-tooltip'); if(!tt) return;
+    var rect = svg.getBoundingClientRect();
+    var scaleX = W / rect.width;
+    var mx = (e.clientX - rect.left) * scaleX;
+    var found = null, bestDist = 20;
+    hitAreas.forEach(function(h){ var d=Math.abs(h.x-mx); if(d<bestDist){bestDist=d;found=h;} });
+    if(found){
+      var usdLine = found.usd ? '<div class="tt-row"><span class="tt-lbl">Total USD</span><span class="tt-val" style="color:#93C5FD">$'+(found.usd/1e6).toFixed(2)+'M</span></div>' : '';
+      tt.innerHTML =
+        '<div class="tt-title">'+found.m+' 2026</div>'+
+        '<div class="tt-row"><span class="tt-lbl">Saldo bancos MXN</span><span class="tt-val tt-pos">$'+(found.v/1e6).toFixed(2)+'M</span></div>'+
+        usdLine;
+      tt.style.display='block';
+      tt.style.left=(e.clientX+14)+'px';
+      tt.style.top=(e.clientY-10)+'px';
+      var ttW=tt.offsetWidth, ttH=tt.offsetHeight;
+      if(e.clientX+14+ttW>window.innerWidth) tt.style.left=(e.clientX-ttW-10)+'px';
+      if(e.clientY-10+ttH>window.innerHeight) tt.style.top=(e.clientY-ttH)+'px';
+    } else {
+      tt.style.display='none';
+    }
+  };
+  svg._fLineLeave = function(){
+    var tt=document.getElementById('rs-tooltip'); if(tt) tt.style.display='none';
+  };
+  svg.addEventListener('mousemove', svg._fLineMove);
+  svg.addEventListener('mouseleave', svg._fLineLeave);
 }
-
 var SALDO_DIA = {"fecha": "3-nov-2026", "fecha_generacion": "4-nov-2026", "total": 72000745.58, "banks": {"BBVA Pesos": {"mxn": 716610.27}, "BBVA USD": {"mxn": 14526471.89, "usd": 772076.87}, "BMX USD": {"mxn": 56064398.99, "usd": 2979803.08}, "BMX QRO MN": {"mxn": 625651.04}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 20475604.71, "usd": 1088271.19}, "SALDO RH": {"mxn": 11155472.0, "usd": 592909.41}}};
 var FBANCOS_OCT_CLOSE = {"mes": "OCT", "banks": {"BBVA Pesos": {"mxn": 313912.54}, "BBVA USD": {"mxn": 14526471.89, "usd": 772076.87}, "BMX USD": {"mxn": 56064398.99, "usd": 2979803.08}, "BMX QRO MN": {"mxn": 1606449.67}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 20475604.71, "usd": 1088271.19}, "SALDO RH": {"mxn": 11155472.0, "usd": 592909.41}}, "total_mxn": 104209923.19, "total_usd": 5538720.75};
 var FBANCOS_HIST = {"ENE": {"banks": {"BBVA Pesos": {"mxn": 869518.92}, "BBVA USD": {"mxn": 49684791.24, "usd": 2879743.54}, "BMX USD": {"mxn": 38231967.5, "usd": 2215934.87}, "BMX QRO MN": {"mxn": 1361966.49}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 19669081.53, "usd": 1140025.13}, "SALDO RH": {"mxn": 11599819.94, "usd": 672328.61}}, "total_mxn": 121484759.01, "total_usd": 7041288.52}, "FEB": {"banks": {"BBVA Pesos": {"mxn": 2638018.94}, "BBVA USD": {"mxn": 48868266.79, "usd": 2831908.74}, "BMX USD": {"mxn": 43691310.7, "usd": 2531904.91}, "BMX QRO MN": {"mxn": 659701.0}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 19759249.15, "usd": 1145045.53}, "SALDO RH": {"mxn": 12461819.94, "usd": 722160.6}}, "total_mxn": 128145979.91, "total_usd": 7426040.34}, "MAR": {"banks": {"BBVA Pesos": {"mxn": 1508704.92}, "BBVA USD": {"mxn": 42676979.02, "usd": 2357414.34}, "BMX USD": {"mxn": 55231219.66, "usd": 3050892.36}, "BMX QRO MN": {"mxn": 518177.17}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 19846774.1, "usd": 1096306.98}, "SALDO RH": {"mxn": 12461819.94, "usd": 688372.83}}, "total_mxn": 132311288.2, "total_usd": 7308683.4}, "ABR": {"banks": {"BBVA Pesos": {"mxn": 1702668.09}, "BBVA USD": {"mxn": 37938515.44, "usd": 2168559.54}, "BMX USD": {"mxn": 53173505.3, "usd": 3039389.15}, "BMX QRO MN": {"mxn": 1199189.18}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 19940529.42, "usd": 1139797.51}, "SALDO RH": {"mxn": 11271820.0, "usd": 644295.45}}, "total_mxn": 125293840.82, "total_usd": 7161776.12}, "MAY": {"banks": {"BBVA Pesos": {"mxn": 86575.14}, "BBVA USD": {"mxn": 30952274.34, "usd": 1786948.69}, "BMX USD": {"mxn": 57035592.92, "usd": 3292800.94}, "BMX QRO MN": {"mxn": 982423.35}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 20025287.21, "usd": 1156107.64}, "SALDO RH": {"mxn": 11155472.0, "usd": 644032.03}}, "total_mxn": 120305238.36, "total_usd": 6945508.61}, "JUN": {"banks": {"BBVA Pesos": {"mxn": 2141383.38}, "BBVA USD": {"mxn": 33095763.33, "usd": 1890613.89}, "BMX USD": {"mxn": 51156868.86, "usd": 2922364.59}, "BMX QRO MN": {"mxn": 1391006.67}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 20115805.68, "usd": 1149126.59}, "SALDO RH": {"mxn": 11155471.94, "usd": 637262.54}}, "total_mxn": 119123913.25, "total_usd": 6805019.81}, "JUL": {"banks": {"BBVA Pesos": {"mxn": 667768.94}, "BBVA USD": {"mxn": 25412867.85, "usd": 1464195.38}, "BMX USD": {"mxn": 56018360.5, "usd": 3227570.58}, "BMX QRO MN": {"mxn": 352254.64}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 20115806.0, "usd": 1158998.28}, "SALDO RH": {"mxn": 11155472.0, "usd": 642737.0}}, "total_mxn": 113790143.32, "total_usd": 6556166.86}, "AGO": {"banks": {"BBVA Pesos": {"mxn": 616084.26}, "BBVA USD": {"mxn": 22641148.21, "usd": 1328495.38}, "BMX USD": {"mxn": 53271907.54, "usd": 3125790.37}, "BMX QRO MN": {"mxn": 72819.96}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 20293622.74, "usd": 1190751.63}, "SALDO RH": {"mxn": 11155472.0, "usd": 654560.13}}, "total_mxn": 108118668.1, "total_usd": 6343987.05}, "SEP": {"banks": {"BBVA Pesos": {"mxn": 1452204.99}, "BBVA USD": {"mxn": 14855751.12, "usd": 822076.87}, "BMX USD": {"mxn": 55191154.32, "usd": 3054128.4}, "BMX QRO MN": {"mxn": 1389729.13}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 20376496.15, "usd": 1127579.89}, "SALDO RH": {"mxn": 11155472.0, "usd": 617313.49}}, "total_mxn": 104488421.09, "total_usd": 5782105.09}, "OCT": {"banks": {"BBVA Pesos": {"mxn": 313912.54}, "BBVA USD": {"mxn": 14526471.89, "usd": 772076.87}, "BMX USD": {"mxn": 56064398.99, "usd": 2979803.08}, "BMX QRO MN": {"mxn": 1606449.67}, "Banamex MN": {"mxn": 67613.39}, "INVERSION": {"mxn": 20475604.71, "usd": 1088271.19}, "SALDO RH": {"mxn": 11155472.0, "usd": 592909.41}}, "total_mxn": 104209923.19, "total_usd": 5538720.75}};
