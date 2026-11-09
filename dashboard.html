@@ -544,6 +544,7 @@ footer strong{color:#fff}
       <button onclick="cFilterMes('SEP')" data-m="SEP" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">SEP</button>
       <button onclick="cFilterMes('OCT')" data-m="OCT" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">OCT</button>
       <button onclick="cFilterMes('NOV')" data-m="NOV" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">NOV</button>
+      <button onclick="cFilterMes('NOV26')" data-m="NOV26" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">NOV<sup style="font-size:.6rem">&#39;26</sup></button>
     </div>
     <button onclick="downloadCostosCSV()" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer;display:flex;align-items:center;gap:4px">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1365,6 +1366,7 @@ var CRES={"ENE": [{"n": "DIEGO AYALA DE LA ROSA", "po": "7200316276", "svc": "PL
 
 var CMONTHS = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV26'];
 var CMONTH_YEAR = {'NOV':'2025','DIC':'2025','NOV26':'2026'};
+var CMONTH_LABEL = {'NOV':'NOV','DIC':'DIC','NOV26':'NOV'}; // display label override
 var fU = v => '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 var fM = v => '$'+v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
 var currentView = 'ambos';
@@ -1405,7 +1407,7 @@ function buildCostosTable(){
     if(!showMXN && !d.usd_total) return;
 
     const otrosCostos = COSTOS_OTROS_USD[mes] || 0;
-    const viaticos = (d.perdiem_usd != null && d.perdiem_usd > 0) ? d.perdiem_usd : (d.usd_total - d.usd_hrs - otrosCostos);
+    const viaticos = (d.perdiem_usd != null && d.perdiem_usd > 0) ? d.perdiem_usd : ((typeof FDATA !== 'undefined' && FDATA[mes] && FDATA[mes].viat_dls) ? FDATA[mes].viat_dls : Math.max(0, (d.usd_total||0) - (d.usd_hrs||0) - otrosCostos));
     totalHrsUSD += d.usd_hrs||0;
     totalTotalUSD += (d.usd_total||0) + otrosCostos;
     totalViat += viaticos>0 ? viaticos : 0;
@@ -1417,7 +1419,7 @@ function buildCostosTable(){
     tr.id = 'mrow-'+mes;
     tr.innerHTML = `
       <td>
-        <span class="month-chip">${mes}</span>${CMONTH_YEAR[mes]?`<span style="font-size:.68rem;color:var(--gray-500);margin-left:4px">${CMONTH_YEAR[mes]}</span>`:''}
+        <span class="month-chip">${(typeof CMONTH_LABEL!=="undefined"&&CMONTH_LABEL[mes])||mes}</span>${CMONTH_YEAR[mes]?`<span style="font-size:.68rem;color:var(--gray-500);margin-left:4px">${CMONTH_YEAR[mes]}</span>`:''}
         <button class="expand-btn" id="ebtn-${mes}" onclick="toggleCostosBreak('${mes}')" style="margin-left:6px">＋</button>
       </td>
       <td class="num">${showUSD ? fU(d.usd_hrs) : '—'}</td>
@@ -1711,7 +1713,8 @@ function buildCostosKPIs(){
   });
   // Abbreviate only very long names
   var topClienteLabel = topClienteNombre.length>28 ? topClienteNombre.substring(0,26)+'…' : topClienteNombre;
-  totalViat=totalUSD-totalHrsUSD;
+  // Perdiem from FDATA.viat_dls (viáticos registrados en flujo de caja)
+  totalViat=months.reduce(function(a,m){return a+((typeof FDATA!=='undefined'&&FDATA[m]&&FDATA[m].viat_dls)||0);},0);
   var items=[
     {icon:"💵",label:"TOTAL COSTO USD",value:"$"+fN(Math.round(totalUSD)),sub:"costo acumulado USD",accent:"var(--blue)",ibg:"rgba(31,91,166,.08)"},
     {icon:"⏱️",label:"COSTO HRS USD",value:"$"+fN(Math.round(totalHrsUSD)),sub:"horas trabajadas",accent:"var(--navy)",ibg:"rgba(13,31,60,.08)"},

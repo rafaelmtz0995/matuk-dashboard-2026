@@ -2486,6 +2486,31 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_ok.append('CMONTH-YEAR (patron no encontrado en HTML)')
 
+    # FIX CMONTH-LABEL: Asegurar CMONTH_LABEL en HTML
+    _cml_expected = "var CMONTH_LABEL = {" + "'NOV':'NOV','DIC':'DIC','NOV26':'NOV'}; // display label override"
+    if 'CMONTH_LABEL' not in html:
+        import re as _re_cml
+        html = _re_cml.sub(
+            r"(var CMONTH_YEAR\s*=\s*\{[^}]+\};)",
+            r"\1\n" + _cml_expected,
+            html, count=1
+        )
+        fixes_ok.append('CMONTH-LABEL: insertado')
+    else:
+        fixes_ok.append('CMONTH-LABEL (ya OK)')
+
+    # FIX NOV26-BUTTON: Asegurar boton NOV26 en costos
+    if "cFilterMes('NOV26')" not in html:
+        _nov_old_end = ">NOV</button>\n    </div>"
+        _nov_new_end = ">NOV</button>\n      <button onclick=\"cFilterMes('NOV26')\" data-m=\"NOV26\" class=\"cfilter-btn\" style=\"padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99\">NOV<sup style=\"font-size:.6rem\">&#39;26</sup></button>\n    </div>"
+        if _nov_old_end in html:
+            html = html.replace(_nov_old_end, _nov_new_end, 1)
+            fixes_ok.append("NOV26-BUTTON: insertado")
+        else:
+            fixes_ok.append("NOV26-BUTTON (no encontrado)")
+    else:
+        fixes_ok.append("NOV26-BUTTON (ya OK)")
+
     # FIX RS-TOOLTIP-POS: mover rs-tooltip fuera de view-resumen (si está dentro, queda oculto en tabs no-resumen)
     _RTTP_BAD  = '<div id="view-resumen">\n<div id="rs-tooltip"></div>'
     _RTTP_GOOD = '<div id="rs-tooltip"></div>\n<div id="view-resumen">'
