@@ -25,7 +25,7 @@ print(f"HTML  : {OUTPUT_HTML}")
 
 MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV']
 MES_MAP = {1:'ENE',2:'FEB',3:'MAR',4:'ABR',5:'MAY',6:'JUN',7:'JUL',8:'AGO',9:'SEP',10:'OCT',11:'NOV'}
-CMONTHS = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT']
+CMONTHS = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV26']
 
 MES_LARGO = {
     'ENERO':'ENE','FEBRERO':'FEB','MARZO':'MAR','MARZO ':'MAR','ENERO ':'ENE',
@@ -477,13 +477,13 @@ def extraer_costos(tc_mes):
     ws = wb['COSTOS']
     rows = list(ws.iter_rows(values_only=True))
     costos = {}
-    MES_KEY = {  # fecha.month para 2025/2026/2027
-        (2025,11):'NOV', (2025,12):'DIC',  # fiscal anterior (preservar datos historicos)
-        (2026,11):'NOV', (2026,12):'DIC',  # fiscal actual
+    MES_KEY = {  # fecha.month para 2025/2026
+        (2025,11):'NOV', (2025,12):'DIC',  # fiscal 2025
         (2026,1):'ENE',  (2026,2):'FEB',  (2026,3):'MAR',
         (2026,4):'ABR',  (2026,5):'MAY',  (2026,6):'JUN',
         (2026,7):'JUL',  (2026,8):'AGO',  (2026,9):'SEP',
         (2026,10):'OCT',
+        (2026,11):'NOV26',  # nuevo ciclo fiscal 2026
     }
     for row in rows[9:26]:  # filas con datos mensuales (hasta OCT)
         fecha = row[1]
@@ -2478,7 +2478,7 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         pass
     if _cy_nov_year is None: _cy_nov_year = 2026
     if _cy_dic_year is None: _cy_dic_year = _cy_nov_year
-    _cy_new = "var CMONTH_YEAR = {{'NOV':'{nov}','DIC':'{dic}'}};".format(nov=_cy_nov_year, dic=_cy_dic_year)
+    _cy_new = "var CMONTH_YEAR = {{'NOV':'2025','DIC':'2025','NOV26':'{nov}'}};".format(nov=_cy_nov_year, dic=_cy_dic_year)
     _cy_old_pat = r"var CMONTH_YEAR\s*=\s*\{[^}]+\};"
     if _reCY.search(_cy_old_pat, html):
         html = _reCY.sub(_cy_old_pat, _cy_new, html, count=1)
