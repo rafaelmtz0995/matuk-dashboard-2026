@@ -477,8 +477,9 @@ def extraer_costos(tc_mes):
     ws = wb['COSTOS']
     rows = list(ws.iter_rows(values_only=True))
     costos = {}
-    MES_KEY = {  # fecha.month para 2025/2026
-        (2025,11):'NOV', (2025,12):'DIC',
+    MES_KEY = {  # fecha.month para 2025/2026/2027
+        (2025,11):'NOV', (2025,12):'DIC',  # fiscal anterior (preservar datos historicos)
+        (2026,11):'NOV', (2026,12):'DIC',  # fiscal actual
         (2026,1):'ENE',  (2026,2):'FEB',  (2026,3):'MAR',
         (2026,4):'ABR',  (2026,5):'MAY',  (2026,6):'JUN',
         (2026,7):'JUL',  (2026,8):'AGO',  (2026,9):'SEP',
@@ -2453,6 +2454,37 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
         else:
             fixes_fail.append('FLINE-SIMPLE (var SALDO_DIA no encontrado)')
 
+
+
+    # FIX CMONTH-YEAR: actualizar año de NOV/DIC según datos reales del Excel
+    import re as _reCY
+    import datetime as _dtCY
+    _cy_nov_year = None
+    _cy_dic_year = None
+    # Determinar año de NOV y DIC buscando la fecha mas reciente en MES_KEY
+    _cy_wb = None
+    try:
+        _cy_wb = openpyxl.load_workbook(FLUJO_FILE, read_only=True, data_only=True)
+        _cy_ws = _cy_wb['COSTOS'] if 'COSTOS' in _cy_wb.sheetnames else None
+        if _cy_ws:
+            for _cy_row in _cy_ws.iter_rows(values_only=True):
+                _cy_fecha = _cy_row[1] if len(_cy_row) > 1 else None
+                if isinstance(_cy_fecha, _dtCY.datetime):
+                    if _cy_fecha.month == 11 and (_cy_nov_year is None or _cy_fecha.year > _cy_nov_year):
+                        _cy_nov_year = _cy_fecha.year
+                    if _cy_fecha.month == 12 and (_cy_dic_year is None or _cy_fecha.year > _cy_dic_year):
+                        _cy_dic_year = _cy_fecha.year
+    except Exception as _cy_e:
+        pass
+    if _cy_nov_year is None: _cy_nov_year = 2026
+    if _cy_dic_year is None: _cy_dic_year = _cy_nov_year
+    _cy_new = "var CMONTH_YEAR = {{'NOV':'{nov}','DIC':'{dic}'}};".format(nov=_cy_nov_year, dic=_cy_dic_year)
+    _cy_old_pat = r"var CMONTH_YEAR\s*=\s*\{[^}]+\};"
+    if _reCY.search(_cy_old_pat, html):
+        html = _reCY.sub(_cy_old_pat, _cy_new, html, count=1)
+        fixes_ok.append(f'CMONTH-YEAR: NOV={_cy_nov_year} DIC={_cy_dic_year}')
+    else:
+        fixes_ok.append('CMONTH-YEAR (patron no encontrado en HTML)')
 
     # FIX RS-TOOLTIP-POS: mover rs-tooltip fuera de view-resumen (si está dentro, queda oculto en tabs no-resumen)
     _RTTP_BAD  = '<div id="view-resumen">\n<div id="rs-tooltip"></div>'
