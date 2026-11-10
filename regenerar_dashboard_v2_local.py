@@ -381,14 +381,14 @@ def extraer_horas():
         else:
             days_row = cres_wd_last[m].get((po, name, svc, cust), round(hrs_row / 8) if hrs_row > 0 else 0)
         # Usar col_AD (row[29] = "Perdiem diario formula") si está disponible;
-        # de lo contrario usar rate_viat × days solo cuando hay días reales (wd>0), no con fallback
+        # Usar col[29] (AD=Perdiem diario formula) si tiene valor; si no, rate_viat × days_row
         perdiem_formula = sf(row[29]) if len(row) > 29 and row[29] else 0.0
         if perdiem_formula > 0:
-            perdiem_row = perdiem_formula          # valor calculado en Excel (correcto)
-        elif wd and wd > 0:
-            perdiem_row = rate_viat * days_row     # calcular cuando hay días reales
+            perdiem_row = perdiem_formula          # valor calculado en Excel
+        elif rate_viat > 0 and days_row > 0:
+            perdiem_row = rate_viat * days_row     # calcular: rate_viat × días (wd o fallback hrs/8)
         else:
-            perdiem_row = 0.0                      # wd=0 → sin perdiem esta semana
+            perdiem_row = 0.0                      # sin rate_viat o sin días → sin perdiem
 
         data[m]['hours']+=hrs; data[m]['st']+=st; data[m]['ot']+=ot; data[m]['dt']+=dt
         if name: data[m]['res'].add(name)
