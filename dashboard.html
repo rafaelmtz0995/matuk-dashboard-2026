@@ -543,7 +543,7 @@ footer strong{color:#fff}
       <button onclick="cFilterMes('AGO')" data-m="AGO" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">AGO</button>
       <button onclick="cFilterMes('SEP')" data-m="SEP" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">SEP</button>
       <button onclick="cFilterMes('OCT')" data-m="OCT" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">OCT</button>
-      <button onclick="cFilterMes('NOV')" data-m="NOV" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">NOV</button>
+      
       <button onclick="cFilterMes('NOV26')" data-m="NOV26" class="cfilter-btn" style="padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99">NOV<sup style="font-size:.6rem">&#39;26</sup></button>
     </div>
     <button onclick="downloadCostosCSV()" style="padding:4px 10px;border-radius:6px;border:1px solid #D1D5DB;background:#F9FAFB;color:#374151;font-size:.7rem;cursor:pointer;display:flex;align-items:center;gap:4px">
@@ -1416,9 +1416,12 @@ function buildCostosTable(){
     const _fdKey = (typeof FISCAL_ALIAS!=='undefined'&&FISCAL_ALIAS[mes]) || ((typeof FISCAL_SKIP!=='undefined'&&FISCAL_SKIP.indexOf(mes)>=0) ? null : mes);
     const otrosCostos = _fdKey ? (COSTOS_OTROS_USD[_fdKey] || 0) : 0;
     const viaticos = (d.perdiem_usd != null && d.perdiem_usd > 0) ? d.perdiem_usd : (_fdKey && typeof FDATA!=='undefined' && FDATA[_fdKey] && FDATA[_fdKey].viat_dls ? FDATA[_fdKey].viat_dls : 0);
-    // Costo MXN: usar valor del Excel si existe, sino calcular USD * TC
-    const mxn_hrs_c = (d.mxn_hrs||0) > 0 ? d.mxn_hrs : ((d.usd_hrs||0) > 0 && (d.tc||0) > 0 ? Math.round(d.usd_hrs * d.tc * 100)/100 : 0);
-    // Perdiem MXN: usar FDATA[_fdKey].viat_mx (viáticos en MXN desde FLUJO)
+    // Costo MXN: FISCAL_SKIP → blank; FISCAL_ALIAS → TC del mes aliasado
+    const _isFSkip = (typeof FISCAL_SKIP!=='undefined' && FISCAL_SKIP.indexOf(mes)>=0);
+    const _tcMes = (typeof FISCAL_ALIAS!=='undefined' && FISCAL_ALIAS[mes]) || mes;
+    const _tc = (typeof COSTOS!=='undefined' && COSTOS[_tcMes] && (COSTOS[_tcMes].tc||0)>0) ? COSTOS[_tcMes].tc : (d.tc||0);
+    const mxn_hrs_c = _isFSkip ? 0 : ((d.mxn_hrs||0)>0 ? d.mxn_hrs : ((d.usd_hrs||0)>0 && _tc>0 ? Math.round(d.usd_hrs*_tc*100)/100 : 0));
+    // Perdiem MXN: usar FDATA[_fdKey].viat_mx (viáticos MXN desde FLUJO)
     const perdiem_mxn_c = (d.perdiem_mxn||0) > 0 ? d.perdiem_mxn : (_fdKey && typeof FDATA!=='undefined' && FDATA[_fdKey] && FDATA[_fdKey].viat_mx ? FDATA[_fdKey].viat_mx : 0);
     totalHrsUSD += d.usd_hrs||0;
     totalTotalUSD += (d.usd_total||0) + otrosCostos;
@@ -1711,8 +1714,11 @@ function buildCostosKPIs(){
     var d=COSTOS[m];
     totalUSD+=d.usd_total||0;
     totalHrsUSD+=d.usd_hrs||0;
-    // Costo MXN: usar valor del Excel si existe, sino calcular USD * TC
-    var _mxnVal = (d.mxn_total||0) > 0 ? (d.mxn_total||0) : ((d.usd_total||0) > 0 && (d.tc||0) > 0 ? d.usd_total * d.tc : 0);
+    // Costo MXN: FISCAL_SKIP → 0; FISCAL_ALIAS → TC del mes aliasado
+    var _isFSkipKpi = (typeof FISCAL_SKIP!=='undefined' && FISCAL_SKIP.indexOf(m)>=0);
+    var _tcMesKpi = (typeof FISCAL_ALIAS!=='undefined' && FISCAL_ALIAS[m]) || m;
+    var _tcKpi = (typeof COSTOS!=='undefined' && COSTOS[_tcMesKpi] && (COSTOS[_tcMesKpi].tc||0)>0) ? COSTOS[_tcMesKpi].tc : (d.tc||0);
+    var _mxnVal = _isFSkipKpi ? 0 : ((d.mxn_total||0)>0 ? (d.mxn_total||0) : ((d.usd_total||0)>0 && _tcKpi>0 ? d.usd_total*_tcKpi : 0));
     totalMXN+=_mxnVal;
     if((d.usd_total||0)>peakVal){peakVal=d.usd_total;peakMes=m;}
     (d.by_cust||[]).forEach(function(c){
