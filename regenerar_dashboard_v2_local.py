@@ -584,7 +584,7 @@ def extraer_costos(tc_mes):
             costos[m]['usd_hrs'] = round(sum(c['usd_hrs'] for c in costos[m]['by_cust']),2)
             costos[m]['usd_total'] = round(sum(c['usd'] for c in costos[m]['by_cust']),2)
         # Ajustar mxn_hrs/mxn_total usando TC cuando hoja COSTOS no tiene MXN calculado
-        if costos[m]['mxn_total'] == 0 and costos[m]['usd_total'] > 0:
+        if costos[m]['mxn_total'] == 0 and costos[m]['usd_total'] > 0 and m != 'NOV':  # NOV=nov-2025 genuinamente MXN=0
             tc = costos[m].get('tc', 0)
             if tc > 0:
                 costos[m]['mxn_hrs']   = round(costos[m]['usd_hrs']   * tc, 2)
@@ -1337,7 +1337,7 @@ function buildCostosCharts(){
     _btn_todos = '<button onclick="cFilterMes(\'TODOS\')" data-m="TODOS" id="cbtn-todos" class="cfilter-btn active" style="padding:4px 12px;border-radius:20px;border:none;background:var(--blue);color:#fff;font-size:.72rem;cursor:pointer;font-weight:600">Todos</button>'
     _btns_meses = '\n      '.join(
         f'<button onclick="cFilterMes(\'{m}\')" data-m="{m}" class="cfilter-btn" style="{_btn_style}">{m}</button>'
-        for m in _MESES_FULL[:_idx_horas + 1]
+        for m in _MESES_FULL[:_idx_horas + 1] if m != 'NOV'  # NOV=nov-2025 excluido (FISCAL_SKIP)
     )
     _new_btn_block = (
         '<span style="font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7A99;margin-right:4px">FILTRAR POR MES:</span>\n'
