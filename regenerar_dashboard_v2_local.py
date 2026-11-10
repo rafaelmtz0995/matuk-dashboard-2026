@@ -2499,15 +2499,15 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_ok.append('CMONTH-LABEL (ya OK)')
 
-    # FIX NOV26-BUTTON: Asegurar boton NOV26 en costos
+    # FIX NOV26-BUTTON: Asegurar boton NOV26 en la seccion COSTOS (usa cfilter-btn / cFilterMes)
     if "cFilterMes('NOV26')" not in html:
-        _nov_old_end = ">NOV</button>\n    </div>"
-        _nov_new_end = ">NOV</button>\n      <button onclick=\"cFilterMes('NOV26')\" data-m=\"NOV26\" class=\"cfilter-btn\" style=\"padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99\">NOV<sup style=\"font-size:.6rem\">&#39;26</sup></button>\n    </div>"
-        if _nov_old_end in html:
-            html = html.replace(_nov_old_end, _nov_new_end, 1)
-            fixes_ok.append("NOV26-BUTTON: insertado")
+        _nov_costos_old = "      <button onclick=\"cFilterMes('NOV')\" data-m=\"NOV\" class=\"cfilter-btn\" style=\"padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99\">NOV</button>\n    </div>"
+        _nov_costos_new = "      <button onclick=\"cFilterMes('NOV')\" data-m=\"NOV\" class=\"cfilter-btn\" style=\"padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99\">NOV</button>\n      <button onclick=\"cFilterMes('NOV26')\" data-m=\"NOV26\" class=\"cfilter-btn\" style=\"padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99\">NOV<sup style=\"font-size:.6rem\">&#39;26</sup></button>\n    </div>"
+        if _nov_costos_old in html:
+            html = html.replace(_nov_costos_old, _nov_costos_new, 1)
+            fixes_ok.append("NOV26-BUTTON: insertado en Costos")
         else:
-            fixes_ok.append("NOV26-BUTTON (no encontrado)")
+            fixes_ok.append("NOV26-BUTTON (patron Costos no encontrado)")
     else:
         fixes_ok.append("NOV26-BUTTON (ya OK)")
 
