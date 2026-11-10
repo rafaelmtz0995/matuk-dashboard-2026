@@ -1711,7 +1711,9 @@ function buildCostosKPIs(){
     var d=COSTOS[m];
     totalUSD+=d.usd_total||0;
     totalHrsUSD+=d.usd_hrs||0;
-    totalMXN+=d.mxn_total||0;
+    // Costo MXN: usar valor del Excel si existe, sino calcular USD * TC
+    var _mxnVal = (d.mxn_total||0) > 0 ? (d.mxn_total||0) : ((d.usd_total||0) > 0 && (d.tc||0) > 0 ? d.usd_total * d.tc : 0);
+    totalMXN+=_mxnVal;
     if((d.usd_total||0)>peakVal){peakVal=d.usd_total;peakMes=m;}
     (d.by_cust||[]).forEach(function(c){
       clienteSet.add(c.c);
