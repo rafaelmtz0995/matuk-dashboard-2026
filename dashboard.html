@@ -1367,6 +1367,11 @@ var CRES={"ENE": [{"n": "DIEGO AYALA DE LA ROSA", "po": "7200316276", "svc": "PL
 var CMONTHS = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV26'];
 var CMONTH_YEAR = {'NOV':'2025','DIC':'2025','NOV26':'2026'};
 var CMONTH_LABEL = {'NOV':'NOV','DIC':'DIC','NOV26':'NOV'}; // display label override
+// FISCAL_ALIAS: months in new fiscal cycle reuse FDATA/COSTOS_OTROS from previous key
+// NOV26 (nov 2026) uses FDATA['NOV'] and COSTOS_OTROS_USD['NOV'] (Excel col updated to 2026)
+// 'NOV' (2025) is excluded from these lookups since Excel already has 2026 data
+var FISCAL_ALIAS = {'NOV26':'NOV'}; // NOV26 -> leer FDATA['NOV'] / COSTOS_OTROS['NOV']
+var FISCAL_SKIP = ['NOV'];          // NOV (2025): no usar FDATA propio (ya tiene datos 2026)
 var fU = v => '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 var fM = v => '$'+v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
 var currentView = 'ambos';
@@ -1406,14 +1411,21 @@ function buildCostosTable(){
     if(!showUSD && !d.mxn_hrs) return;
     if(!showMXN && !d.usd_total) return;
 
-    const otrosCostos = COSTOS_OTROS_USD[mes] || 0;
-    const viaticos = (d.perdiem_usd != null && d.perdiem_usd > 0) ? d.perdiem_usd : ((typeof FDATA !== 'undefined' && FDATA[mes] && FDATA[mes].viat_dls) ? FDATA[mes].viat_dls : Math.max(0, (d.usd_total||0) - (d.usd_hrs||0) - otrosCostos));
+    // Alias de mes para FDATA/COSTOS_OTROS: NOV26 usa columna 'NOV' del Excel (actualizada a 2026)
+    // NOV (2025) queda en blanco para esos campos (Excel ya tiene datos 2026 en esa columna)
+    const _fdKey = (typeof FISCAL_ALIAS!=='undefined'&&FISCAL_ALIAS[mes]) || ((typeof FISCAL_SKIP!=='undefined'&&FISCAL_SKIP.indexOf(mes)>=0) ? null : mes);
+    const otrosCostos = _fdKey ? (COSTOS_OTROS_USD[_fdKey] || 0) : 0;
+    const viaticos = (d.perdiem_usd != null && d.perdiem_usd > 0) ? d.perdiem_usd : (_fdKey && typeof FDATA!=='undefined' && FDATA[_fdKey] && FDATA[_fdKey].viat_dls ? FDATA[_fdKey].viat_dls : 0);
+    // Costo MXN: usar valor del Excel si existe, sino calcular USD * TC
+    const mxn_hrs_c = (d.mxn_hrs||0) > 0 ? d.mxn_hrs : ((d.usd_hrs||0) > 0 && (d.tc||0) > 0 ? Math.round(d.usd_hrs * d.tc * 100)/100 : 0);
+    // Perdiem MXN: usar FDATA[_fdKey].viat_mx (viáticos en MXN desde FLUJO)
+    const perdiem_mxn_c = (d.perdiem_mxn||0) > 0 ? d.perdiem_mxn : (_fdKey && typeof FDATA!=='undefined' && FDATA[_fdKey] && FDATA[_fdKey].viat_mx ? FDATA[_fdKey].viat_mx : 0);
     totalHrsUSD += d.usd_hrs||0;
     totalTotalUSD += (d.usd_total||0) + otrosCostos;
     totalViat += viaticos>0 ? viaticos : 0;
     totalOtros = (totalOtros||0) + otrosCostos;
-    totalMXN += d.mxn_hrs||0;
-    totalPerdiemMXN += d.perdiem_mxn||0;
+    totalMXN += mxn_hrs_c;
+    totalPerdiemMXN += perdiem_mxn_c;
 
     const tr = document.createElement('tr');
     tr.id = 'mrow-'+mes;
@@ -1426,8 +1438,8 @@ function buildCostosTable(){
       <td class="num">${showUSD && viaticos>0 ? fU(viaticos) : '—'}</td>
       <td class="num">${showUSD && otrosCostos>0 ? fU(otrosCostos) : '—'}</td>
       <td class="num">${showUSD ? fU((d.usd_total||0) + otrosCostos) : '—'}</td>
-      <td class="num">${showMXN && (d.mxn_hrs||0)>0 ? fM(d.mxn_hrs) : '—'}</td>
-      <td class="num">${showMXN && (d.perdiem_mxn||0)>0 ? fM(d.perdiem_mxn) : '—'}</td>`;
+      <td class="num">${showMXN && mxn_hrs_c>0 ? fM(mxn_hrs_c) : '—'}</td>
+      <td class="num">${showMXN && perdiem_mxn_c>0 ? fM(perdiem_mxn_c) : '—'}</td>`;
     tb.appendChild(tr);
   });
 
@@ -1714,7 +1726,7 @@ function buildCostosKPIs(){
   // Abbreviate only very long names
   var topClienteLabel = topClienteNombre.length>28 ? topClienteNombre.substring(0,26)+'…' : topClienteNombre;
   // Perdiem from FDATA.viat_dls (viáticos registrados en flujo de caja)
-  totalViat=months.reduce(function(a,m){return a+((typeof FDATA!=='undefined'&&FDATA[m]&&FDATA[m].viat_dls)||0);},0);
+  totalViat=months.reduce(function(a,m){var _k=(typeof FISCAL_ALIAS!=='undefined'&&FISCAL_ALIAS[m])||((typeof FISCAL_SKIP!=='undefined'&&FISCAL_SKIP.indexOf(m)>=0)?null:m);return a+(_k&&typeof FDATA!=='undefined'&&FDATA[_k]?(FDATA[_k].viat_dls||0):0);},0);
   var items=[
     {icon:"💵",label:"TOTAL COSTO USD",value:"$"+fN(Math.round(totalUSD)),sub:"costo acumulado USD",accent:"var(--blue)",ibg:"rgba(31,91,166,.08)"},
     {icon:"⏱️",label:"COSTO HRS USD",value:"$"+fN(Math.round(totalHrsUSD)),sub:"horas trabajadas",accent:"var(--navy)",ibg:"rgba(13,31,60,.08)"},
