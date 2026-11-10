@@ -2701,6 +2701,17 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_ok.append('COSTO MXN tabla: mxn_hrs (ya OK)')
 
+    # FIX PERDIEM MXN: quitar fallback a FDATA.viat_mx; solo de hoja COSTOS col8
+    _old_pmxn = "    const perdiem_mxn_c = (d.perdiem_mxn||0) > 0 ? d.perdiem_mxn : (_fdKey && typeof FDATA!=='undefined' && FDATA[_fdKey] && FDATA[_fdKey].viat_mx ? FDATA[_fdKey].viat_mx : 0);"
+    _new_pmxn = "    const perdiem_mxn_c = d.perdiem_mxn || 0;  // solo de COSTOS, no FDATA"
+    if _old_pmxn in html:
+        html = html.replace(_old_pmxn, _new_pmxn, 1)
+        fixes_ok.append('PERDIEM MXN: quitado fallback FDATA.viat_mx')
+    elif _new_pmxn in html:
+        fixes_ok.append('PERDIEM MXN: ya OK (sin fallback FDATA)')
+    else:
+        fixes_fail.append('PERDIEM MXN: patron no encontrado')
+
     print("  FIXES OK:", ", ".join(fixes_ok))
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
