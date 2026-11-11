@@ -1510,7 +1510,8 @@ function _getCostosSubItems(mes){
     });
     subItems = Object.values(svcMap).sort((a,b)=>(b.usd+b.mxn/17)-(a.usd+a.mxn/17));
   } else {
-    var cresMes2 = (typeof CRES!=='undefined' ? CRES[mes] : null) || [];
+    var _cresMesKey = (typeof FISCAL_ALIAS!=='undefined' && FISCAL_ALIAS[mes]) || mes;
+  var cresMes2 = (typeof CRES!=='undefined' ? CRES[_cresMesKey] : null) || [];
   subItems = d.by_cust.map(function(c){
     var perdiem_usd = cresMes2.filter(function(e){ return e.c===c.c && e.mon!=='MXN'; })
       .reduce(function(s,e){ return s+(e.perdiem||0); }, 0);
@@ -1564,7 +1565,8 @@ function toggleCostosDetail(subId, mes, label){
   if(arr) arr.style.transform='rotate(90deg)';
 
   // Gather matching CRES entries for this mes + label (by group)
-  const cresMes = (typeof CRES!=='undefined' ? CRES[mes] : null) || [];
+  const _cresMesKey2 = (typeof FISCAL_ALIAS!=='undefined' && FISCAL_ALIAS[mes]) || mes;
+  const cresMes = (typeof CRES!=='undefined' ? CRES[_cresMesKey2] : null) || [];
   let entries = [];
   if(cCurrentGroup==='cliente'){
     entries = cresMes.filter(e=>e.c===label);
@@ -2196,7 +2198,8 @@ window.addEventListener('DOMContentLoaded', function(){
 <!-- xlsx library removed -->
 <script>
 function exportCostosDesglose(subId, mes, label){
-  const cresMes = (typeof CRES!=='undefined' ? CRES[mes] : null) || [];
+  const _cresMesKey2 = (typeof FISCAL_ALIAS!=='undefined' && FISCAL_ALIAS[mes]) || mes;
+  const cresMes = (typeof CRES!=='undefined' ? CRES[_cresMesKey2] : null) || [];
   let entries = [];
   if(cCurrentGroup==='cliente') entries = cresMes.filter(e=>e.c===label);
   else if(cCurrentGroup==='po') entries = cresMes.filter(e=>String(e.po)===String(label));

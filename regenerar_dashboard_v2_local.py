@@ -2712,6 +2712,28 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append('PERDIEM MXN: patron no encontrado')
 
+    # FIX CRES NOV26: _getCostosSubItems usa FISCAL_ALIAS para lookear CRES con clave correcta
+    _old_cres2 = "  var cresMes2 = (typeof CRES!=='undefined' ? CRES[mes] : null) || [];"
+    _new_cres2 = "  var _cresMesKey = (typeof FISCAL_ALIAS!=='undefined' && FISCAL_ALIAS[mes]) || mes;\n  var cresMes2 = (typeof CRES!=='undefined' ? CRES[_cresMesKey] : null) || [];"
+    if _old_cres2 in html:
+        html = html.replace(_old_cres2, _new_cres2, 1)
+        fixes_ok.append('CRES NOV26: _getCostosSubItems usa FISCAL_ALIAS')
+    elif _new_cres2 in html or '_cresMesKey' in html:
+        fixes_ok.append('CRES NOV26: _getCostosSubItems ya OK')
+    else:
+        fixes_fail.append('CRES NOV26: patron _getCostosSubItems no encontrado')
+
+    # FIX CRES NOV26: toggleCostosDetail usa FISCAL_ALIAS para lookear CRES con clave correcta
+    _old_cres_toggle = "  const cresMes = (typeof CRES!=='undefined' ? CRES[mes] : null) || [];"
+    _new_cres_toggle = "  const _cresMesKey2 = (typeof FISCAL_ALIAS!=='undefined' && FISCAL_ALIAS[mes]) || mes;\n  const cresMes = (typeof CRES!=='undefined' ? CRES[_cresMesKey2] : null) || [];"
+    if _old_cres_toggle in html:
+        html = html.replace(_old_cres_toggle, _new_cres_toggle)
+        fixes_ok.append('CRES NOV26: toggleCostosDetail usa FISCAL_ALIAS')
+    elif '_cresMesKey2' in html:
+        fixes_ok.append('CRES NOV26: toggleCostosDetail ya OK')
+    else:
+        fixes_fail.append('CRES NOV26: patron toggleCostosDetail no encontrado')
+
     print("  FIXES OK:", ", ".join(fixes_ok))
     if fixes_fail:
         print("  FIXES FALLIDOS:", ", ".join(fixes_fail))
