@@ -2505,15 +2505,19 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_ok.append('CMONTH-LABEL (ya OK)')
 
-    # FIX NOV26-BUTTON: Asegurar boton NOV26 en la seccion COSTOS (usa cfilter-btn / cFilterMes)
+    # FIX NOV26-BUTTON: Asegurar boton NOV26 en la seccion COSTOS
+    # Ancla ahora es OCT (NOV=nov-2025 ya fue excluido del filtro por FISCAL_SKIP)
     if "cFilterMes('NOV26')" not in html:
-        _nov_costos_old = "      <button onclick=\"cFilterMes('NOV')\" data-m=\"NOV\" class=\"cfilter-btn\" style=\"padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99\">NOV</button>\n    </div>"
-        _nov_costos_new = "      <button onclick=\"cFilterMes('NOV')\" data-m=\"NOV\" class=\"cfilter-btn\" style=\"padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99\">NOV</button>\n      <button onclick=\"cFilterMes('NOV26')\" data-m=\"NOV26\" class=\"cfilter-btn\" style=\"padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99\">NOV<sup style=\"font-size:.6rem\">&#39;26</sup></button>\n    </div>"
-        if _nov_costos_old in html:
-            html = html.replace(_nov_costos_old, _nov_costos_new, 1)
-            fixes_ok.append("NOV26-BUTTON: insertado en Costos")
+        _btn_sty = "padding:4px 12px;border-radius:20px;border:1.5px solid #D1D5DB;background:#fff;font-size:.72rem;cursor:pointer;font-weight:600;color:#6B7A99"
+        _nov26_btn = f'      <button onclick="cFilterMes(\'NOV26\')" data-m="NOV26" class="cfilter-btn" style="{_btn_sty}">NOV<sup style=\"font-size:.6rem\">&#39;26</sup></button>\n    </div>'
+        # Intentar ancla OCT button + </div>
+        _oct_anchor = f'      <button onclick="cFilterMes(\'OCT\')" data-m="OCT" class="cfilter-btn" style="{_btn_sty}">OCT</button>\n    </div>'
+        _oct_with_nov26 = f'      <button onclick="cFilterMes(\'OCT\')" data-m="OCT" class="cfilter-btn" style="{_btn_sty}">OCT</button>\n{_nov26_btn}'
+        if _oct_anchor in html:
+            html = html.replace(_oct_anchor, _oct_with_nov26, 1)
+            fixes_ok.append("NOV26-BUTTON: insertado despues de OCT en filtro Costos")
         else:
-            fixes_ok.append("NOV26-BUTTON (patron Costos no encontrado)")
+            fixes_ok.append("NOV26-BUTTON (patron OCT no encontrado en filtro)")
     else:
         fixes_ok.append("NOV26-BUTTON (ya OK)")
 
