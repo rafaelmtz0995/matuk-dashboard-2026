@@ -583,12 +583,7 @@ def extraer_costos(tc_mes):
         if costos[m]['usd_hrs'] == 0 and costos[m]['by_cust']:
             costos[m]['usd_hrs'] = round(sum(c['usd_hrs'] for c in costos[m]['by_cust']),2)
             costos[m]['usd_total'] = round(sum(c['usd'] for c in costos[m]['by_cust']),2)
-        # Ajustar mxn_hrs/mxn_total usando TC cuando hoja COSTOS no tiene MXN calculado
-        if costos[m]['mxn_total'] == 0 and costos[m]['usd_total'] > 0 and m != 'NOV':  # NOV=nov-2025 genuinamente MXN=0
-            tc = costos[m].get('tc', 0)
-            if tc > 0:
-                costos[m]['mxn_hrs']   = round(costos[m]['usd_hrs']   * tc, 2)
-                costos[m]['mxn_total'] = round(costos[m]['usd_total']  * tc, 2)
+        # NO ajustar mxn con TC: si Excel dice mxn_hrs=0, el mes es USD puro (ENE-MAR, NOV, DIC)
 
     print(f"    Meses con datos: {[m for m in CMONTHS if costos[m]['usd_total']>0]}")
     return costos
