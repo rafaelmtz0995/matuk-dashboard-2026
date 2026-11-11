@@ -1419,7 +1419,7 @@ function buildCostosTable(){
     const _isFSkip = (typeof FISCAL_SKIP!=='undefined' && FISCAL_SKIP.indexOf(mes)>=0);
     const _tcMes = (typeof FISCAL_ALIAS!=='undefined' && FISCAL_ALIAS[mes]) || mes;
     const _tc = (typeof COSTOS!=='undefined' && COSTOS[_tcMes] && (COSTOS[_tcMes].tc||0)>0) ? COSTOS[_tcMes].tc : (d.tc||0);
-    const mxn_hrs_c = _isFSkip ? 0 : ((d.mxn_hrs||0)>0 ? d.mxn_hrs : ((d.usd_hrs||0)>0 && _tc>0 ? Math.round(d.usd_hrs*_tc*100)/100 : 0));
+    const mxn_hrs_c = _isFSkip ? 0 : (d.mxn_hrs||0);  // si Excel dice mxn_hrs=0, es USD-puro (no calcular con TC)
     // Perdiem MXN: usar FDATA[_fdKey].viat_mx (viáticos MXN desde FLUJO)
     const perdiem_mxn_c = d.perdiem_mxn || 0;  // solo de COSTOS, no FDATA
     totalHrsUSD += d.usd_hrs||0;

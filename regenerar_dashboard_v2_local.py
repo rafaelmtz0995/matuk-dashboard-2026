@@ -2716,6 +2716,17 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append('PERDIEM MXN: patron no encontrado')
 
+    # FIX mxn_hrs_c JS: quitar fallback TC en buildCostosTable (si mxn_hrs=0, dejar 0)
+    _old_mxn_js = "    const mxn_hrs_c = _isFSkip ? 0 : ((d.mxn_hrs||0)>0 ? d.mxn_hrs : ((d.usd_hrs||0)>0 && _tc>0 ? Math.round(d.usd_hrs*_tc*100)/100 : 0));"
+    _new_mxn_js = "    const mxn_hrs_c = _isFSkip ? 0 : (d.mxn_hrs||0);  // si Excel dice mxn_hrs=0, es USD-puro (no calcular con TC)"
+    if _old_mxn_js in html:
+        html = html.replace(_old_mxn_js, _new_mxn_js)
+        fixes_ok.append('mxn_hrs_c JS: quitado fallback TC')
+    elif _new_mxn_js in html:
+        fixes_ok.append('mxn_hrs_c JS: ya OK')
+    else:
+        fixes_fail.append('mxn_hrs_c JS: patron no encontrado')
+
     # FIX CRES NOV26: _getCostosSubItems usa FISCAL_ALIAS para lookear CRES con clave correcta
     _old_cres2 = "  var cresMes2 = (typeof CRES!=='undefined' ? CRES[mes] : null) || [];"
     _new_cres2 = "  var _cresMesKey = (typeof FISCAL_ALIAS!=='undefined' && FISCAL_ALIAS[mes]) || mes;\n  var cresMes2 = (typeof CRES!=='undefined' ? CRES[_cresMesKey] : null) || [];"
