@@ -2711,6 +2711,27 @@ if(typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.
     else:
         fixes_fail.append('PERDIEM MXN: patron no encontrado')
 
+    # FIX buildCostosCharts: agregar NOV26 a allMonths y su label
+    _old_am = "  var allMonths = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT'];"
+    _new_am = "  var allMonths = ['NOV','DIC','ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV26'];"
+    if _old_am in html:
+        html = html.replace(_old_am, _new_am)
+        fixes_ok.append('buildCostosCharts: NOV26 en allMonths')
+    elif _new_am in html:
+        fixes_ok.append('buildCostosCharts: NOV26 ya OK')
+    else:
+        fixes_fail.append('buildCostosCharts: patron allMonths no encontrado')
+
+    _old_lbl = "    return (m==='NOV'||m==='DIC') ? m+' 25' : m;"
+    _new_lbl = "    return m==='NOV26' ? 'NOV 26' : (m==='NOV'||m==='DIC') ? m+' 25' : m;"
+    if _old_lbl in html:
+        html = html.replace(_old_lbl, _new_lbl)
+        fixes_ok.append('buildCostosCharts: label NOV26')
+    elif _new_lbl in html:
+        fixes_ok.append('buildCostosCharts: label NOV26 ya OK')
+    else:
+        fixes_fail.append('buildCostosCharts: patron label no encontrado')
+
     # FIX mxn_hrs_c JS: quitar fallback TC en buildCostosTable (si mxn_hrs=0, dejar 0)
     _old_mxn_js = "    const mxn_hrs_c = _isFSkip ? 0 : ((d.mxn_hrs||0)>0 ? d.mxn_hrs : ((d.usd_hrs||0)>0 && _tc>0 ? Math.round(d.usd_hrs*_tc*100)/100 : 0));"
     _new_mxn_js = "    const mxn_hrs_c = _isFSkip ? 0 : (d.mxn_hrs||0);  // si Excel dice mxn_hrs=0, es USD-puro (no calcular con TC)"
